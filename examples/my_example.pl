@@ -40,6 +40,11 @@ for my $empire (@$empires) {
     print "Known Colonies\n";
     for my $colony (@{$empire->known_colonies}) {
         print "    Colony name ".$colony->name."\n";
+        print "    Colony location ".$colony->x."-".$colony->y."\n";
+        print "    Has Uraninite ".$colony->ore->uraninite."\n";
+        print "    On Star '".$colony->star->name."' position ".$colony->star->x."-".$colony->star->y."\n";
+#        print dump($colony->star);
+        last;
     }
 }
 

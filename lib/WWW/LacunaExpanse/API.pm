@@ -9,6 +9,8 @@ use WWW::LacunaExpanse::API::Empire;
 use WWW::LacunaExpanse::API::EmpireRank;
 use WWW::LacunaExpanse::API::Connection;
 use WWW::LacunaExpanse::API::Body;
+use WWW::LacunaExpanse::API::Star;
+use WWW::LacunaExpanse::API::Ores;
 use WWW::LacunaExpanse::API::DateTime;
 use WWW::LacunaExpanse::API::Alliance;
 use WWW::LacunaExpanse::API::EmpireStats;

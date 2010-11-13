@@ -21,6 +21,7 @@ has 'password'      => (is => 'ro', required => 1);
 has 'user_agent'    => (is => 'ro', lazy_build => 1);
 has 'marshal'       => (is => 'ro', lazy_build => 1);
 has 'session_id'    => (is => 'rw');
+has 'debug'         => (is => 'rw', default => 0);
 
 my $public_key      = 'c200634c-7feb-4001-8d70-d48eb3ff532c';
 
@@ -59,7 +60,7 @@ sub call {
         uri => URI->new($self->uri.$path),
     );
 
-    print "request = [".$req->as_string."]\n";
+    print "request = [".$req->as_string."]\n" if $self->debug;
     my $resp = $self->user_agent->request($req);
 
 #    print "response = [".$resp->as_string."]\n";
@@ -73,7 +74,7 @@ sub call {
         Carp::croak("RPC Error (" . $res->error->code . "): " . $res->error->message);
     }
     my $deflated = $res->deflate;
-    print dump(\$deflated);
+    print dump(\$deflated) if $self->debug;
 
     if ($deflated->{result}{session_id}) {
         $self->session_id($deflated->{result}{session_id});

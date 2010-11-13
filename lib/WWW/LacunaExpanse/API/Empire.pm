@@ -37,7 +37,9 @@ sub _build_connection {
 sub update {
     my ($self) = @_;
 
+#    $self->connection->debug(1);
     my $result = $self->connection->call($path, 'view_public_profile',[$self->connection->session_id, $self->id]);
+#    $self->connection->debug(0);
 
     my $profile = $result->{result}{profile};
 
@@ -69,8 +71,22 @@ sub update {
     if ($profile->{known_colonies}) {
         for my $colony_hash (@{$profile->{known_colonies}}) {
 
-            my $ore     = 'TBD';
-            my $star    = 'TBD';
+            # Ore
+            my $ores_hash = $colony_hash->{ore};
+            my $ores;
+            if ($ores_hash) {
+                $ores = WWW::LacunaExpanse::API::Ores->new;
+                for my $ore (qw(anthracite bauxite beryl chalcopyrite chromite flourite galena goethite
+                    gold gypsum halite kerogen magnetite methane monazite rutile sulfur trona uraninite zircon)) {
+                    $ores->$ore($ores_hash->{$ore});
+                }
+            }
+
+            my $star = WWW::LacunaExpanse::API::Star->new({
+                id      => $colony_hash->{star_id},
+                name    => $colony_hash->{star_name},
+            });
+
             my $known_colony = WWW::LacunaExpanse::API::Body->new({
                 id      => $colony_hash->{id},
                 name    => $colony_hash->{name},
@@ -81,7 +97,7 @@ sub update {
                 water   => $colony_hash->{water},
                 x       => $colony_hash->{x},
                 y       => $colony_hash->{y},
-                ore     => $ore,
+                ore     => $ores,
                 empire  => $self,
                 star    => $star,
             });

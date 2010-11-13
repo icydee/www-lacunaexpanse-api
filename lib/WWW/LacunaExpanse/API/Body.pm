@@ -37,7 +37,9 @@ sub _build_connection {
 sub update {
     my ($self) = @_;
 
+    $self->connection->debug(1);
     my $result = $self->connection->call($path, 'get_status',[$self->connection->session_id, $self->id]);
+    $self->connection->debug(1);
 
     $result = $result->{body};
 
@@ -55,8 +57,25 @@ sub update {
     }
 
     # other strings
-    $self->ore('TBD');
-    $self->star('TBD');
+    # Ore
+    my $ores_hash = $result->{body}{ore};
+    my $ores;
+    if ($ores_hash) {
+        $ores = WWW::LacunaExpanse::API::Ores->new;
+        for my $ore (qw(anthracite bauxite beryl chalcopyrite chromite flourite galena goethite
+            gold gypsum halite kerogen magnetite methane monazite rutile sulfur trona uraninite zircon)) {
+            $ores->$ore($ores_hash->{$ore});
+        }
+    }
+
+    $self->ore($ores);
+print "### Body.pm: creating a star ###\n";
+    my $star = WWW::LacunaExpanse::API::Star->new({
+        id      => $result->{star}{id},
+        name    => $result->{star}{name},
+    });
+    $self->star($star);
+
     $self->empire('TBD');
 }
 
