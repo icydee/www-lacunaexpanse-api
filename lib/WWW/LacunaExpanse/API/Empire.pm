@@ -27,8 +27,6 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
 }
 
 sub _build_connection {
-    my ($self) = @_;
-
     return WWW::LacunaExpanse::API::Connection->instance;
 }
 

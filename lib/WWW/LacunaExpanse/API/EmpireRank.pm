@@ -6,10 +6,12 @@ use Carp;
 # Private attributes
 has 'sort_by'           => (is => 'ro', default => 'empire_size_rank');
 has 'page_number'       => (is => 'ro', default => undef);
-has 'rpc'               => (is => 'ro', lazy_build => 1);
+has 'connection'        => (is => 'ro', lazy_build => 1);
 has 'cached'            => (is => 'ro');
 
-my @simple_strings  = qw(total_empires page_number);
+my $path = '/stats';
+
+my @simple_strings  = qw(total_empires page_number total_empires);
 my @date_strings    = qw();
 my @other_strings   = qw(empires);
 
@@ -25,17 +27,8 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
     );
 }
 
-sub _build_rpc {
-    my ($self) = @_;
-
-    my $rpc = WWW::LacunaExpanse::API::RPC->instance;
-    return $rpc;
-}
-
-# the full URI including the path
-sub path {
-    my ($self) = @_;
-    return $self->rpc->uri.'/stats';
+sub _build_connection {
+    return WWW::LacunaExpanse::API::Connection->instance;
 }
 
 # Refresh the object from the Server
@@ -43,8 +36,10 @@ sub path {
 sub update {
     my ($self) = @_;
 
-    my $result = $self->rpc->call($self->path, 'empire_rank',[
-        $self->rpc->session_id, $self->sort_by, $self->page_number]);
+    $self->connection->debug(1);
+    my $result = $self->connection->call($path, 'empire_rank',[
+        $self->connection->session_id, $self->sort_by, $self->page_number]);
+    $self->connection->debug(0);
 
     $result = $result->{result};
 
@@ -89,6 +84,12 @@ sub update {
         push @empires, $empire_stats;
     }
     $self->_empires(\@empires);
+}
+
+sub total_pages {
+    my ($self) = @_;
+
+    return int($self->total_empires / 25);
 }
 
 1;

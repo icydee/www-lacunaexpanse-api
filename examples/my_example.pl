@@ -20,33 +20,48 @@ my $api = WWW::LacunaExpanse::API->new({
     password    => $password,
 });
 
-#my $empire_rank = $api->empire_rank({page_number => 1});
-#print "Total empires=[".$empire_rank->total_empires."]\n";
-#print "There are [".scalar(@{$empire_rank->empires})."] empires on this page\n";
-#for my $empire_stat (@{$empire_rank->empires}) {
-#    print "Empire name        : ".$empire_stat->empire->name."\n";
-#    print "Empire description : ".$empire_stat->empire->description."\n";
-#    print "Building count     : ".$empire_stat->building_count."\n";
-#    last; #to stop processing all 25 for test purposes
-#}
+my $page_number = 1;
+my $total_pages = 1;
+do {
+    my $empire_rank = $api->empire_rank({page_number => $page_number});
+    $total_pages = $empire_rank->total_pages;
+    if ($page_number == 1) {
+        print "Total pages   =[$total_pages]\n";
+        print "Total empires =[".$empire_rank->total_empires."]\n";
+    }
+
+    for my $empire_stat (@{$empire_rank->empires}) {
+        my $empire = $empire_stat->empire;
+        print "Empire name        : ".$empire->name."\n";
+        if ($empire->colony_count > 1) {
+            print "    Worth checking up.\n";
+            for my $colony (@{$empire->known_colonies}) {
+                print "        Colony ".$colony->name." location ".$colony->x."-".$colony->y."\n";
+            }
+        }
+        else {
+            print "    Not worth bothering with\n";
+        }
+    }
+    $page_number++;
+} while ($page_number < $total_pages && $page_number < 3);
 
 #print dump(\$empire_rank);
 
 
 
-my $empires = $api->find({empire => 'icydee-2'});
-for my $empire (@$empires) {
-    print "Empire name : ".$empire->name."\n";
-    print "Known Colonies\n";
-    for my $colony (@{$empire->known_colonies}) {
-        print "    Colony name ".$colony->name."\n";
-        print "    Colony location ".$colony->x."-".$colony->y."\n";
-        print "    Has Uraninite ".$colony->ore->uraninite."\n";
-        print "    On Star '".$colony->star->name."' position ".$colony->star->x."-".$colony->star->y."\n";
-#        print dump($colony->star);
-        last;
-    }
-}
+#my $empires = $api->find({empire => 'icydee-2'});
+#for my $empire (@$empires) {
+#    print "Empire name : ".$empire->name."\n";
+#    print "Known Colonies\n";
+#    for my $colony (@{$empire->known_colonies}) {
+#        print "    Colony name ".$colony->name."\n";
+#        print "    Colony location ".$colony->x."-".$colony->y."\n";
+#        print "    Has Uraninite ".$colony->ore->uraninite."\n";
+#        print "    On Star '".$colony->star->name."' position ".$colony->star->x."-".$colony->star->y."\n";
+##        print dump($colony->star);
+#    }
+#}
 
 #
 #for my $empire (@$empires) {
