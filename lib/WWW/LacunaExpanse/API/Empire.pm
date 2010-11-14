@@ -131,4 +131,11 @@ sub find {
     return $empires;
 }
 
+
+# Return the rank information for an empire
+#
+sub rank {
+}
+
+
 1;

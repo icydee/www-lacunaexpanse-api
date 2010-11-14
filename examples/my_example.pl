@@ -20,31 +20,53 @@ my $api = WWW::LacunaExpanse::API->new({
     password    => $password,
 });
 
-my $page_number = 1;
-my $total_pages = 1;
-do {
-    my $empire_rank = $api->empire_rank({page_number => $page_number});
-    $total_pages = $empire_rank->total_pages;
-    if ($page_number == 1) {
-        print "Total pages   =[$total_pages]\n";
-        print "Total empires =[".$empire_rank->total_empires."]\n";
-    }
+my $empire_rank     = $api->empire_rank({});
+my $total_empires   = $empire_rank->count;
 
-    for my $empire_stat (@{$empire_rank->empires}) {
-        my $empire = $empire_stat->empire;
-        print "Empire name        : ".$empire->name."\n";
-        if ($empire->colony_count > 1) {
-            print "    Worth checking up.\n";
-            for my $colony (@{$empire->known_colonies}) {
-                print "        Colony ".$colony->name." location ".$colony->x."-".$colony->y."\n";
-            }
-        }
-        else {
-            print "    Not worth bothering with\n";
-        }
-    }
-    $page_number++;
-} while ($page_number < $total_pages && $page_number < 3);
+print "Total empires = '$total_empires'\n";
+my $count = 0;
+
+while ((my $empire_stats = $empire_rank->next) && $count < 30) {
+    print "Empire [".$empire_stats->empire->id."]\t name        : ".$empire_stats->empire->name."\n";
+#    if ($empire->colony_count > 1) {
+#        print "    Worth checking up.\n";
+#        for my $colony (@{$empire->known_colonies}) {
+#            print "        Colony ".$colony->name." location ".$colony->x."-".$colony->y."\n";
+#        }
+#    }
+#    else {
+#        print "    Not worth bothering with\n";
+#    }
+    $count++;
+}
+
+
+
+#my $page_number = 1;
+#my $total_pages = 1;
+#do {
+#    my $empire_rank = $api->empire_rank({page_number => $page_number});
+#    $total_pages = $empire_rank->total_pages;
+#    if ($page_number == 1) {
+#        print "Total pages   =[$total_pages]\n";
+#        print "Total empires =[".$empire_rank->total_empires."]\n";
+#    }
+#
+#    for my $empire_stat (@{$empire_rank->empires}) {
+#        my $empire = $empire_stat->empire;
+#        print "Empire name        : ".$empire->name."\n";
+#        if ($empire->colony_count > 1) {
+#            print "    Worth checking up.\n";
+#            for my $colony (@{$empire->known_colonies}) {
+#                print "        Colony ".$colony->name." location ".$colony->x."-".$colony->y."\n";
+#            }
+#        }
+#        else {
+#            print "    Not worth bothering with\n";
+#        }
+#    }
+#    $page_number++;
+#} while ($page_number < $total_pages && $page_number < 3);
 
 #print dump(\$empire_rank);
 
