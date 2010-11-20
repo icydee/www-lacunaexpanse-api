@@ -20,25 +20,42 @@ my $api = WWW::LacunaExpanse::API->new({
     password    => $password,
 });
 
-my $empire_rank     = $api->empire_rank({});
-my $total_empires   = $empire_rank->count;
+#my $my_empire = $api->my_empire;
+#
+#print dump($my_empire->name);
+#print "My Empire Name is [".$my_empire->name."]\n";
+#
+#for my $colony (@{$my_empire->colonies}) {
+#    print "$colony\n";
+#    print "Colony Name: '".$colony->name."' at ".$colony->x."-".$colony->y." water capacity ".$colony->water_capacity."\n";
+#}
+#
+#exit;
 
-print "Total empires = '$total_empires'\n";
-my $count = 0;
 
-while ((my $empire_stats = $empire_rank->next) && $count < 30) {
-    print "Empire [".$empire_stats->empire->id."]\t name        : ".$empire_stats->empire->name."\n";
+#my $empire_rank     = $api->empire_rank({});
+#my $total_empires   = $empire_rank->count;
+#
+#print "Total empires = '$total_empires'\n";
+#my $count = 0;
+#
+#while ((my $empire_stats = $empire_rank->next) && $count < 14) {
+#    my $empire = $empire_stats->empire;
+#    print "Empire [".$empire->id."]\t name        : ".$empire->name."\n";
 #    if ($empire->colony_count > 1) {
 #        print "    Worth checking up.\n";
 #        for my $colony (@{$empire->known_colonies}) {
 #            print "        Colony ".$colony->name." location ".$colony->x."-".$colony->y."\n";
+#            if ($colony->can_see) {
+#                print "        CAN SEE orbit [".$colony->orbit."]\n";
+#            }
 #        }
 #    }
 #    else {
 #        print "    Not worth bothering with\n";
 #    }
-    $count++;
-}
+#    $count++;
+#}
 
 
 
@@ -72,18 +89,21 @@ while ((my $empire_stats = $empire_rank->next) && $count < 30) {
 
 
 
-#my $empires = $api->find({empire => 'icydee-2'});
-#for my $empire (@$empires) {
-#    print "Empire name : ".$empire->name."\n";
-#    print "Known Colonies\n";
-#    for my $colony (@{$empire->known_colonies}) {
-#        print "    Colony name ".$colony->name."\n";
+my $empires = $api->find({empire => 'beer'});
+for my $empire (@$empires) {
+    print "Empire name : ".$empire->name."\n";
+    print "Known Colonies at:-\n";
+    for my $colony (@{$empire->known_colonies}) {
+        print $colony;
+#        print "    Colony name ".$colony->name." [$colony]\n";
 #        print "    Colony location ".$colony->x."-".$colony->y."\n";
-#        print "    Has Uraninite ".$colony->ore->uraninite."\n";
-#        print "    On Star '".$colony->star->name."' position ".$colony->star->x."-".$colony->star->y."\n";
-##        print dump($colony->star);
-#    }
-#}
+        if ($colony->can_see) {
+#            print "    Colony orbit [".$colony->orbit."]\n";
+#            print "    Has Uraninite ".$colony->ore->uraninite."\n";
+#            print "    On Star '".$colony->star->name."' position ".$colony->star->x."-".$colony->star->y."\n";
+        }
+    }
+}
 
 #
 #for my $empire (@$empires) {

@@ -60,7 +60,11 @@ sub call {
         uri => URI->new($self->uri.$path),
     );
 
-    print "request = [".$req->as_string."]\n" if $self->debug;
+    if ($self->debug) {
+        print "\n############ request ##################\n";
+        print "request = [".$req->as_string."]\n";
+        print "#######################################\n\n";
+    }
     my $resp = $self->user_agent->request($req);
 
 #    print "response = [".$resp->as_string."]\n";
@@ -74,7 +78,11 @@ sub call {
         Carp::croak("RPC Error (" . $res->error->code . "): " . $res->error->message);
     }
     my $deflated = $res->deflate;
-    print dump(\$deflated) if $self->debug;
+    if ($self->debug) {
+        print "\n############ response ###############\n";
+        print "response = [".dump(\$deflated)."]\n";
+        print "#######################################\n\n";
+    }
 
     if ($deflated->{result}{session_id}) {
         $self->session_id($deflated->{result}{session_id});

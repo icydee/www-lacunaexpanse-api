@@ -37,7 +37,7 @@ sub _build_connection {
 sub update {
     my ($self) = @_;
 
-#    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call($path, 'get_star',[$self->connection->session_id, $self->id]);
     $self->connection->debug(0);
 
@@ -94,5 +94,21 @@ sub update {
     }
     $self->_bodies(\@bodies);
 }
+
+# Stringify
+use overload '""' => sub {
+    my $star = $_[0];
+    my $str = "  Star\n";
+    $str .= "    ID     : ".$star->id."\n";
+    $str .= "    Name   : ".$star->name."\n";
+    $str .= "    Colour : ".$star->color."\n";
+    $str .= "    x      : ".$star->x."\n";
+    $str .= "    y      : ".$star->y."\n";
+    for my $body (@{$star->bodies}) {
+        $str .= "      $body\n";
+    }
+
+    return $str;
+};
 
 1;

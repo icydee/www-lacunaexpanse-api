@@ -3,9 +3,10 @@ package WWW::LacunaExpanse::API::Empire;
 use Moose;
 use Carp;
 
+with 'WWW::LacunaExpanse::API::Role::Connection';
+
 # Attributes
 has 'id'                => (is => 'ro', required => 1);
-has 'connection'        => (is => 'ro', lazy_build => 1);
 has 'cached'            => (is => 'ro');
 
 my $path = '/empire';
@@ -26,33 +27,20 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
     );
 }
 
-sub _build_connection {
-    return WWW::LacunaExpanse::API::Connection->instance;
-}
-
 # Refresh the object from the Server
 #
 sub update {
     my ($self) = @_;
 
-#    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call($path, 'view_public_profile',[$self->connection->session_id, $self->id]);
-#    $self->connection->debug(0);
+    $self->connection->debug(0);
 
     my $profile = $result->{result}{profile};
 
-    # simple strings
-    for my $attr (@simple_strings) {
-        my $method = "_$attr";
-        $self->$method($profile->{$attr});
-    }
+    $self->simple_strings($profile, \@simple_strings);
 
-    # date strings
-    for my $attr (@date_strings) {
-        my $date = $profile->{$attr};
-        my $method = "_$attr";
-        $self->$method(WWW::LacunaExpanse::API::DateTime->from_lacuna_string($date));
-    }
+    $self->date_strings($profile, \@date_strings);
 
     # other strings
     my $alliance;
@@ -65,44 +53,75 @@ sub update {
     $self->_alliance($alliance);
 
     # Colonies
-    my @colonies;
+    my @known_colonies;
     if ($profile->{known_colonies}) {
         for my $colony_hash (@{$profile->{known_colonies}}) {
 
-            # Ore
-            my $ores_hash = $colony_hash->{ore};
-            my $ores;
-            if ($ores_hash) {
-                $ores = WWW::LacunaExpanse::API::Ores->new;
-                for my $ore (qw(anthracite bauxite beryl chalcopyrite chromite flourite galena goethite
-                    gold gypsum halite kerogen magnetite methane monazite rutile sulfur trona uraninite zircon)) {
-                    $ores->$ore($ores_hash->{$ore});
-                }
-            }
+#            # Ore
+#            my $ores_hash = $colony_hash->{ore};
+#            my $ores;
+#            if ($ores_hash) {
+#                $ores = WWW::LacunaExpanse::API::Ores->new;
+#                for my $ore (qw(anthracite bauxite beryl chalcopyrite chromite flourite galena goethite
+#                    gold gypsum halite kerogen magnetite methane monazite rutile sulfur trona uraninite zircon)) {
+#                    $ores->$ore($ores_hash->{$ore});
+#                }
+#            }
+#
+#            my $star = WWW::LacunaExpanse::API::Star->new({
+#                id      => $colony_hash->{star_id},
+#                name    => $colony_hash->{star_name},
+#            });
 
-            my $star = WWW::LacunaExpanse::API::Star->new({
-                id      => $colony_hash->{star_id},
-                name    => $colony_hash->{star_name},
-            });
+#            # If we own the planet then 'building_count' will be present
+#            # in which case make it a 'Colony' object, otherwise a 'Body'
+#            my $obj;
+#
+#            if ($colony_hash->{building_count}) {
+#                $obj = WWW::LacunaExpanse::API::Colony->new({
+#                    id  => $colony_hash->{id},
+#                });
+#            }
+#            else {
+#                $obj = WWW::LacunaExpanse::API::Body->new({
+#                    id  => $colony_hash->{id},
+#                });
+#            }
+#
+#            for my $str (qw(name image orbit size type water x y)) {
+#                my $attr = "_$str";
+#                $obj->$attr($colony_hash->{$str});
+#            }
 
-            my $known_colony = WWW::LacunaExpanse::API::Body->new({
+            my $colony = WWW::LacunaExpanse::API::Colony->new({
                 id      => $colony_hash->{id},
-                name    => $colony_hash->{name},
-                image   => $colony_hash->{image},
-                orbit   => $colony_hash->{orbit},
-                size    => $colony_hash->{size},
-                type    => $colony_hash->{type},
-                water   => $colony_hash->{water},
                 x       => $colony_hash->{x},
                 y       => $colony_hash->{y},
-                ore     => $ores,
-                empire  => $self,
-                star    => $star,
+                name    => $colony_hash->{name},
+                image   => $colony_hash->{image},
             });
-            push @colonies, $known_colony;
+#            $colony->_ore($ores);
+            $colony->_empire($self);
+#            $colony->_star($star);
+
+#            if ($colony_hash->{building_count}) {
+#                for my $str (qw(needs_surface_refresh building_count plots_available happiness
+#                    happiness_hour food_stored food_capacity food_hour energy_stored energy_capacity
+#                    energy_hour ore_stored ore_capacity ore_hour waste_stored waste_capacity waste hour
+#                    water_stored water_capacity water_hour)) {
+#                    $body->$str($colony_hash->{$str});
+#                }
+#
+#                my $incoming_foreign_ships;
+#                if ($colony_hash->{incoming_foreign_ships}) {
+#                }
+#                $body->incoming_foreign_ships('TBD');
+#            }
+
+            push @known_colonies, $colony;
         }
     }
-    $self->_known_colonies(\@colonies);
+    $self->_known_colonies(\@known_colonies);
 
 
     $self->_medals('TBD');
@@ -120,7 +139,7 @@ sub find {
 
     my @ids = map {$_->{id}} @{$result->{result}{empires}};
 
-    print "Search found the following IDs ".join('-', @ids)."\n";
+#    print "Search found the following IDs ".join('-', @ids)."\n";
 
     # create an Empire object for each ID found
     my $empires;

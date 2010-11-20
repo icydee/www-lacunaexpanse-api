@@ -2,13 +2,15 @@ package WWW::LacunaExpanse::API::Body;
 
 use Moose;
 use Carp;
+use Data::Dumper;
+
+with 'WWW::LacunaExpanse::API::Role::Connection';
 
 # Attributes
 has 'id'                => (is => 'ro', required => 1);
-has 'connection'        => (is => 'ro', lazy_build => 1);
 has 'cached'            => (is => 'ro');
 
-my $path = '/empire';
+my $path = '/body';
 
 my @simple_strings  = qw(image name orbit size type water x y);
 my @date_strings    = qw();
@@ -26,57 +28,84 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
     );
 }
 
-sub _build_connection {
-    my ($self) = @_;
-
-    return WWW::LacunaExpanse::API::Connection->instance;
-}
-
 # Refresh the object from the Server
 #
 sub update {
     my ($self) = @_;
 
-    $self->connection->debug(1);
+    $self->connection->debug(0);
+
     my $result = $self->connection->call($path, 'get_status',[$self->connection->session_id, $self->id]);
-    $self->connection->debug(1);
 
-    $result = $result->{body};
+    $self->connection->debug(0);
 
-    # simple strings
-    for my $attr (@simple_strings) {
-        my $method = "_$attr";
-        $self->$method($result->{$attr});
-    }
+    my $body = $result->{result}{body};
 
-    # date strings
-    for my $attr (@date_strings) {
-        my $date = $result->{$attr};
-        my $method = "_$attr";
-        $self->$method(WWW::LacunaExpanse::API::DateTime->from_lacuna_string($date));
-    }
+    $self->simple_strings($body, \@simple_strings);
+
+    $self->date_strings($body, \@date_strings);
 
     # other strings
     # Ore
-    my $ores_hash = $result->{body}{ore};
+    my $ores_hash = $body->{ore};
     my $ores;
     if ($ores_hash) {
         $ores = WWW::LacunaExpanse::API::Ores->new;
-        for my $ore (qw(anthracite bauxite beryl chalcopyrite chromite flourite galena goethite
+        for my $ore (qw(anthracite bauxite beryl chalcopyrite chromite fluorite galena goethite
             gold gypsum halite kerogen magnetite methane monazite rutile sulfur trona uraninite zircon)) {
             $ores->$ore($ores_hash->{$ore});
         }
     }
 
-    $self->ore($ores);
-print "### Body.pm: creating a star ###\n";
+    $self->_ore($ores);
     my $star = WWW::LacunaExpanse::API::Star->new({
-        id      => $result->{star}{id},
-        name    => $result->{star}{name},
+        id      => $body->{star_id},
+        name    => $body->{star_name},
     });
-    $self->star($star);
+    $self->_star($star);
 
-    $self->empire('TBD');
+    $self->_empire('TBD');
 }
+
+# See if we can obtain any more information about this body
+#
+sub can_see {
+    my ($self) = @_;
+
+    eval {
+        # Force auto-vivification or an error
+        my $orbit = $self->orbit;
+    };
+    if ($@) {
+#        print "### ERROR ### [$@]\n";
+        return;
+    }
+    return 1;
+};
+
+# Stringify
+use overload '""' => sub {
+    my $body = $_[0];
+    my $str = "Body\n";
+    $str .= "  ID    : ".$body->id."\n";
+    $str .= "  Name  : ".$body->name."\n";
+    $str .= "  Image : ".$body->image."\n";
+    $str .= "  x     : ".$body->x."\n";
+    $str .= "  y     : ".$body->y."\n";
+    if ($body->can_see) {
+        $str .= "  orbit : ".$body->orbit."\n";
+        $str .= "  size  : ".$body->size."\n";
+        $str .= "  type  : ".$body->type."\n";
+        $str .= "  water : ".$body->water."\n";
+        # Don't print the star to avoid infinite recursion
+#        $str .= $body->star;
+        $str .= $body->ore;
+    }
+    else {
+        $str .= "  No further information\n";
+    }
+
+    return $str;
+};
 
 1;

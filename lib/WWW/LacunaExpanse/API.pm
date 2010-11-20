@@ -1,7 +1,7 @@
 package WWW::LacunaExpanse::API;
 
 use Moose;
-use Data::Dump qw(dump);
+use Data::Dumper;
 use Carp;
 
 use WWW::LacunaExpanse::API::MyEmpire;
@@ -9,6 +9,7 @@ use WWW::LacunaExpanse::API::Empire;
 use WWW::LacunaExpanse::API::EmpireRank;
 use WWW::LacunaExpanse::API::Connection;
 use WWW::LacunaExpanse::API::Body;
+use WWW::LacunaExpanse::API::Colony;
 use WWW::LacunaExpanse::API::Star;
 use WWW::LacunaExpanse::API::Ores;
 use WWW::LacunaExpanse::API::DateTime;
@@ -51,8 +52,17 @@ sub _build_connection {
 sub _build_my_empire {
     my ($self) = @_;
 
+    $self->connection->debug(1);
+    my $result = $self->connection->call('/empire', 'get_status',[$self->connection->session_id]);
+    $self->connection->debug(0);
+
+    my $data = $result->{result}{empire};
+
     my $my_empire = WWW::LacunaExpanse::API::MyEmpire->new({
+        id      => $data->{id},
+        name    => $data->{name},
     });
+
     return $my_empire;
 }
 
