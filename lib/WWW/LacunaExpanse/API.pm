@@ -76,6 +76,11 @@ sub find {
         return WWW::LacunaExpanse::API::Empire->find($args->{empire});
     }
 
+    if ($args->{star}) {
+        print "search for star [".$args->{star}."]\n";
+        return WWW::LacunaExpanse::API::Star->find($args->{star});
+    }
+
 }
 
 sub empire_rank {

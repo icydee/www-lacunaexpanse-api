@@ -20,6 +20,24 @@ my $api = WWW::LacunaExpanse::API->new({
     password    => $password,
 });
 
+my $stars = $api->find({star => 'Oss Gairvi'});        # beermat's home star
+#my $stars = $api->find({star => 'Oosch Fraeleu Stea'});
+for my $star (@$stars) {
+    print $star;
+    my $incoming_probe = $star->incoming_probe;
+    if ($incoming_probe) {
+        print "A probe arrives here at $incoming_probe\n";
+    }
+}
+
+
+exit;
+my $empires = $api->find({empire => 'icyd'});
+for my $empire (@$empires) {
+    print $empire;
+}
+
+
 #my $my_empire = $api->my_empire;
 #
 #print dump($my_empire->name);
@@ -89,21 +107,6 @@ my $api = WWW::LacunaExpanse::API->new({
 
 
 
-my $empires = $api->find({empire => 'beer'});
-for my $empire (@$empires) {
-    print "Empire name : ".$empire->name."\n";
-    print "Known Colonies at:-\n";
-    for my $colony (@{$empire->known_colonies}) {
-        print $colony;
-#        print "    Colony name ".$colony->name." [$colony]\n";
-#        print "    Colony location ".$colony->x."-".$colony->y."\n";
-        if ($colony->can_see) {
-#            print "    Colony orbit [".$colony->orbit."]\n";
-#            print "    Has Uraninite ".$colony->ore->uraninite."\n";
-#            print "    On Star '".$colony->star->name."' position ".$colony->star->x."-".$colony->star->y."\n";
-        }
-    }
-}
 
 #
 #for my $empire (@$empires) {

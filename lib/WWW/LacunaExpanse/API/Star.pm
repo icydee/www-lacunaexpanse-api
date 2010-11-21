@@ -3,9 +3,10 @@ package WWW::LacunaExpanse::API::Star;
 use Moose;
 use Carp;
 
+with 'WWW::LacunaExpanse::API::Role::Connection';
+
 # Attributes
 has 'id'                => (is => 'ro', required => 1);
-has 'connection'        => (is => 'ro', lazy_build => 1);
 has 'cached'            => (is => 'ro');
 
 my $path = '/map';
@@ -26,11 +27,21 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
     );
 }
 
-sub _build_connection {
-    my ($self) = @_;
+# Stringify
+use overload '""' => sub {
+    my $star = $_[0];
+    my $str = "  Star\n";
+    $str .= "    ID     : ".$star->id."\n";
+    $str .= "    Name   : ".$star->name."\n";
+    $str .= "    Colour : ".$star->color."\n";
+    $str .= "    x      : ".$star->x."\n";
+    $str .= "    y      : ".$star->y."\n";
+    for my $body (@{$star->bodies}) {
+        $str .= $body;
+    }
 
-    return WWW::LacunaExpanse::API::Connection->instance;
-}
+    return $str;
+};
 
 # Refresh the object from the Server
 #
@@ -68,7 +79,7 @@ sub update {
             my $ores;
             if ($ores_hash) {
                 $ores = WWW::LacunaExpanse::API::Ores->new;
-                for my $ore (qw(anthracite bauxite beryl chalcopyrite chromite flourite galena goethite
+                for my $ore (qw(anthracite bauxite beryl chalcopyrite chromite fluorite galena goethite
                     gold gypsum halite kerogen magnetite methane monazite rutile sulfur trona uraninite zircon)) {
                     $ores->$ore($ores_hash->{$ore});
                 }
@@ -95,20 +106,49 @@ sub update {
     $self->_bodies(\@bodies);
 }
 
-# Stringify
-use overload '""' => sub {
-    my $star = $_[0];
-    my $str = "  Star\n";
-    $str .= "    ID     : ".$star->id."\n";
-    $str .= "    Name   : ".$star->name."\n";
-    $str .= "    Colour : ".$star->color."\n";
-    $str .= "    x      : ".$star->x."\n";
-    $str .= "    y      : ".$star->y."\n";
-    for my $body (@{$star->bodies}) {
-        $str .= "      $body\n";
-    }
+# Find star(s) by their name
+#
+sub find {
+    my ($class, $star_name) = @_;
 
-    return $str;
-};
+    my $connection = WWW::LacunaExpanse::API::Connection->instance;
+
+    $connection->debug(0);
+    my $result = $connection->call($path, 'search_stars', [$connection->session_id, $star_name]);
+    $connection->debug(0);
+
+    my $stars;
+    my $stars_hash = $result->{result}{stars};
+    for my $star (@{$stars_hash}) {
+        my $star = WWW::LacunaExpanse::API::Star->new({
+            id      => $star->{id},
+            color   => $star->{color},
+            name    => $star->{name},
+            x       => $star->{x},
+            y       => $star->{y},
+        });
+        push @$stars, $star;
+    }
+    return $stars;
+}
+
+
+# Check for incoming probe
+# returns undefined if no probe is arriving
+#
+sub incoming_probe {
+    my ($self) = @_;
+
+    $self->connection->debug(0);
+    my $result = $self->connection->call($path, 'check_star_for_incoming_probe',[$self->connection->session_id, $self->id]);
+    $self->connection->debug(0);
+
+    # We should cache this so that it remembers the amount of time and the time of the last request
+    my $arrival_time = $result->{result}{incoming_probe};
+    if ($arrival_time) {
+        return WWW::LacunaExpanse::API::DateTime->from_lacuna_string($result->{result}{incoming_probe});
+    }
+    return;
+}
 
 1;

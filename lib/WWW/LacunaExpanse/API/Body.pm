@@ -14,7 +14,7 @@ my $path = '/body';
 
 my @simple_strings  = qw(image name orbit size type water x y);
 my @date_strings    = qw();
-my @other_strings   = qw(ore star empire);
+my @other_strings   = qw(ore star empire buildings);
 
 for my $attr (@simple_strings, @date_strings, @other_strings) {
     has $attr => (is => 'ro', writer => "_$attr", lazy_build => 1);
@@ -28,15 +28,37 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
     );
 }
 
+# Stringify
+use overload '""' => sub {
+    my $body = $_[0];
+    my $str = "Body\n";
+    $str .= "  ID    : ".$body->id."\n";
+    $str .= "  Name  : ".$body->name."\n";
+    $str .= "  Image : ".$body->image."\n";
+    $str .= "  x     : ".$body->x."\n";
+    $str .= "  y     : ".$body->y."\n";
+    if ($body->can_see) {
+        $str .= "  orbit : ".$body->orbit."\n";
+        $str .= "  size  : ".$body->size."\n";
+        $str .= "  type  : ".$body->type."\n";
+        $str .= "  water : ".$body->water."\n";
+        $str .= "  star  : ".$body->star->name."\n";
+        $str .= $body->ore;
+    }
+    else {
+        $str .= "  No further information\n";
+    }
+
+    return $str;
+};
+
 # Refresh the object from the Server
 #
 sub update {
     my ($self) = @_;
 
     $self->connection->debug(0);
-
     my $result = $self->connection->call($path, 'get_status',[$self->connection->session_id, $self->id]);
-
     $self->connection->debug(0);
 
     my $body = $result->{result}{body};
@@ -65,6 +87,7 @@ sub update {
     $self->_star($star);
 
     $self->_empire('TBD');
+    $self->_buildings('TBD');
 }
 
 # See if we can obtain any more information about this body
@@ -81,31 +104,6 @@ sub can_see {
         return;
     }
     return 1;
-};
-
-# Stringify
-use overload '""' => sub {
-    my $body = $_[0];
-    my $str = "Body\n";
-    $str .= "  ID    : ".$body->id."\n";
-    $str .= "  Name  : ".$body->name."\n";
-    $str .= "  Image : ".$body->image."\n";
-    $str .= "  x     : ".$body->x."\n";
-    $str .= "  y     : ".$body->y."\n";
-    if ($body->can_see) {
-        $str .= "  orbit : ".$body->orbit."\n";
-        $str .= "  size  : ".$body->size."\n";
-        $str .= "  type  : ".$body->type."\n";
-        $str .= "  water : ".$body->water."\n";
-        # Don't print the star to avoid infinite recursion
-#        $str .= $body->star;
-        $str .= $body->ore;
-    }
-    else {
-        $str .= "  No further information\n";
-    }
-
-    return $str;
 };
 
 1;
