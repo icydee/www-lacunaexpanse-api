@@ -14,7 +14,7 @@ my $path = '/body';
 
 my @simple_strings  = qw(image name orbit size type water x y);
 my @date_strings    = qw();
-my @other_strings   = qw(ore star empire buildings);
+my @other_strings   = qw(ore star empire);
 
 for my $attr (@simple_strings, @date_strings, @other_strings) {
     has $attr => (is => 'ro', writer => "_$attr", lazy_build => 1);
@@ -87,7 +87,6 @@ sub update {
     $self->_star($star);
 
     $self->_empire('TBD');
-    $self->_buildings('TBD');
 }
 
 # See if we can obtain any more information about this body

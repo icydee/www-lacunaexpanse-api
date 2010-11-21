@@ -27,7 +27,7 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
 sub update_my_empire {
     my ($self) = @_;
 
-#    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call($path, 'get_status',[$self->connection->session_id, $self->id]);
     $self->connection->debug(0);
 
@@ -37,7 +37,7 @@ sub update_my_empire {
 
     $self->date_strings($body, \@date_strings);
 
-    my $home_planet = WWW::LacunaExpanse::API::Colony->new({
+    my $home_planet = WWW::LacunaExpanse::API::MyColony->new({
         id  => $body->{home_planet_id},
     });
     $self->_home_planet($home_planet);
@@ -53,7 +53,7 @@ sub update_my_empire {
     #
     my @my_colonies;
     for my $known_colony (@{$self->known_colonies()}) {
-        my $colony = WWW::LacunaExpanse::API::Colony->new({
+        my $colony = WWW::LacunaExpanse::API::MyColony->new({
             id  => $known_colony->id,
         });
         push @my_colonies, $colony;

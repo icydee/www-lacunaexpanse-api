@@ -10,11 +10,15 @@ use WWW::LacunaExpanse::API::EmpireRank;
 use WWW::LacunaExpanse::API::Connection;
 use WWW::LacunaExpanse::API::Body;
 use WWW::LacunaExpanse::API::Colony;
+use WWW::LacunaExpanse::API::MyColony;
 use WWW::LacunaExpanse::API::Star;
 use WWW::LacunaExpanse::API::Ores;
 use WWW::LacunaExpanse::API::DateTime;
 use WWW::LacunaExpanse::API::Alliance;
 use WWW::LacunaExpanse::API::EmpireStats;
+use WWW::LacunaExpanse::API::BuildingFactory;
+use WWW::LacunaExpanse::API::Building::Timer;
+use WWW::LacunaExpanse::API::Building::SpacePort;
 
 # This is the base class for the API
 
@@ -52,7 +56,7 @@ sub _build_connection {
 sub _build_my_empire {
     my ($self) = @_;
 
-    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call('/empire', 'get_status',[$self->connection->session_id]);
     $self->connection->debug(0);
 
