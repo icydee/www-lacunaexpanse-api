@@ -2,6 +2,7 @@ package WWW::LacunaExpanse::API::Star;
 
 use Moose;
 use Carp;
+use Data::Dumper;
 
 with 'WWW::LacunaExpanse::API::Role::Connection';
 
@@ -86,6 +87,7 @@ sub update {
             }
 
             my $star    = $self;
+            my $water   = $body_hash->{water} || 0;
             my $body = WWW::LacunaExpanse::API::Body->new({
                 id      => $body_hash->{id},
                 name    => $body_hash->{name},
@@ -93,7 +95,7 @@ sub update {
                 orbit   => $body_hash->{orbit},
                 size    => $body_hash->{size},
                 type    => $body_hash->{type},
-                water   => $body_hash->{water},
+                water   => $water,
                 x       => $body_hash->{x},
                 y       => $body_hash->{y},
                 ore     => $ores,
@@ -151,4 +153,6 @@ sub incoming_probe {
     return;
 }
 
+no Moose;
+__PACKAGE__->meta->make_immutable;
 1;

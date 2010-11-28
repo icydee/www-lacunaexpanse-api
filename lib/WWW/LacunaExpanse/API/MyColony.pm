@@ -2,6 +2,7 @@ package WWW::LacunaExpanse::API::MyColony;
 
 use Moose;
 use Carp;
+use Data::Dumper;
 
 extends 'WWW::LacunaExpanse::API::Colony';
 
@@ -62,11 +63,6 @@ sub _build_buildings {
         my $body = $result->{result}{buildings};
         for my $id (keys %$body) {
 
-            # Call the Factory to make the Building object
-            my $name = $body->{$id}{name};
-            $name =~ s/ //g;
-#            print "Build Building [$name]\n";
-
             my $hash = $body->{$id};
             my $pending_build;
             if ($hash->{pending_build}) {
@@ -86,6 +82,10 @@ sub _build_buildings {
                 });
             }
 
+            my $name = $body->{$id}{name};
+            $name =~ s/ //g;
+
+            # Call the Factory to make the Building object
             my $building = WWW::LacunaExpanse::API::BuildingFactory->create(
                 $name, {
                     id              => $id,
@@ -115,4 +115,15 @@ sub space_port {
     return $space_port;
 }
 
+# Return the (first) observatory for this colony
+#
+sub observatory {
+    my ($self) = @_;
+
+    my ($observatory) = grep {$_->name eq 'Observatory'} @{$self->buildings};
+    return $observatory;
+}
+
+no Moose;
+__PACKAGE__->meta->make_immutable;
 1;

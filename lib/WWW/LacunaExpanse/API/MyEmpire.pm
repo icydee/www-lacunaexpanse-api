@@ -62,4 +62,6 @@ sub update_my_empire {
 }
 
 
+no Moose;
+__PACKAGE__->meta->make_immutable;
 1;

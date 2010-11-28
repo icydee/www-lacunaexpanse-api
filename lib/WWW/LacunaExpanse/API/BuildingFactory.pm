@@ -9,12 +9,13 @@ use Carp;
 #
 my $specials = {
     SpacePort       => 1,
+    Observatory     => 1,
 };
 
 implementation_class_via sub {
     my ($name) = @_;
 
-    # Check for special case names, otherwise they are 'Generic';
+    # Check for special building names, otherwise they are 'Generic';
     if (! $specials->{$name}) {
         $name = 'Generic';
     }

@@ -30,29 +30,19 @@ my $api = WWW::LacunaExpanse::API->new({
     password    => $password,
 });
 
-#my $stars = $api->find({star => 'Oss Gairvi'});        # beermat's home star
-#for my $star (@$stars) {
-#    print $star;
-#}
-#exit;
-
 my $home = $api->my_empire->home_planet;
 
 print "Sending probes from my home planet [".$home->name."] ".$home->x."/".$home->y."\n";
 
-my $space_port = $home->space_port;
+my $observatory = $home->observatory;
 
-print "Spaceport [$space_port]\n";
-$space_port->test;
-
-exit;
-
-#print $home;
-for my $building (@{$home->buildings()}) {
-    print "Building [".$building->name."] [$building]\n";
+print "star count: [".$observatory->count_probed_stars."]\n";
+while (my $probed_star = $observatory->next_probed_star) {
+    print "  Star name: [".$probed_star->name."]\n";
+    for my $body (@{$probed_star->bodies}) {
+        print "    Body: [".$body->name."]\n";
+        print "    water: [".$body->water."]\n";
+    }
 }
-
-# Check if the distance table has been set up yet
-
 
 

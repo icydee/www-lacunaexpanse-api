@@ -12,9 +12,9 @@ has 'cached'            => (is => 'ro');
 
 my $path = '/body';
 
-my @simple_strings  = qw(image name orbit size type water x y);
+my @simple_strings  = qw(image name orbit size type x y);
 my @date_strings    = qw();
-my @other_strings   = qw(ore star empire);
+my @other_strings   = qw(ore star empire water);
 
 for my $attr (@simple_strings, @date_strings, @other_strings) {
     has $attr => (is => 'ro', writer => "_$attr", lazy_build => 1);
@@ -31,6 +31,7 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
 # Stringify
 use overload '""' => sub {
     my $body = $_[0];
+
     my $str = "Body\n";
     $str .= "  ID    : ".$body->id."\n";
     $str .= "  Name  : ".$body->name."\n";
@@ -57,6 +58,7 @@ use overload '""' => sub {
 sub update {
     my ($self) = @_;
 
+print "update\n";
     $self->connection->debug(0);
     my $result = $self->connection->call($path, 'get_status',[$self->connection->session_id, $self->id]);
     $self->connection->debug(0);
@@ -68,6 +70,13 @@ sub update {
     $self->date_strings($body, \@date_strings);
 
     # other strings
+print "### water = [".$body->{water}."] ###\n";
+    if ($body->{water}) {
+        $self->_water($body->{water});
+    }
+    else {
+        $self->_water(0);
+    }
     # Ore
     my $ores_hash = $body->{ore};
     my $ores;
@@ -104,5 +113,8 @@ sub can_see {
     }
     return 1;
 };
+
+no Moose;
+__PACKAGE__->meta->make_immutable;
 
 1;
