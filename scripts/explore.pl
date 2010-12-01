@@ -92,7 +92,7 @@ while (my $probed_star = $observatory->next_probed_star) {
     # See if we have previously probed this star
     my $db_star = $schema->resultset('Star')->find($probed_star->id);
     if ($db_star->scan_date) {
-        print "Previously scanned [".$db_star->name."]. Don's scan again\n";
+        print "Previously scanned [".$db_star->name."]. Don't scan again\n";
     }
     else {
         print "Saving scanned data for [".$db_star->name."]\n";
