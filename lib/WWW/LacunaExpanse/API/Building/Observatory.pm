@@ -20,7 +20,6 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
     __PACKAGE__->meta()->add_method(
         "_build_$attr" => sub {
             my ($self) = @_;
-print "observatory accessing --- $attr\n";
             $self->update_observatory;
             return $self->$attr;
         }

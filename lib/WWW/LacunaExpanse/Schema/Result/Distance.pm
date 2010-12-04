@@ -37,15 +37,15 @@ __PACKAGE__->set_primary_key("id");
 
 # Every Distance has a From Body
 __PACKAGE__->belongs_to(
-  "body",
-  "WWW::LacunaExpanse::Schema::Body",
+  "from_body",
+  "WWW::LacunaExpanse::Schema::Result::Body",
   { id => "from_id" },
 );
 
 # Every Distance has a To Body
 __PACKAGE__->belongs_to(
-  "body",
-  "WWW::LacunaExpanse::Schema::Body",
+  "to_star",
+  "WWW::LacunaExpanse::Schema::Result::Star",
   { id => "to_id" },
 );
 

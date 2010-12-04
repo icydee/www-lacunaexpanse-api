@@ -124,6 +124,15 @@ sub observatory {
     return $observatory;
 }
 
+# Return the (first) shipyard for this colony
+#
+sub shipyard {
+    my ($self) = @_;
+
+    my ($shipyard) = grep {$_->name eq 'Shipyard'} @{$self->buildings};
+    return $shipyard;
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 1;

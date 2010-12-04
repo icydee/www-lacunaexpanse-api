@@ -26,7 +26,7 @@ __PACKAGE__->set_primary_key("id");
 # Every Ore has many LinkBodyOres
 __PACKAGE__->belongs_to(
   "link_body_ores",
-  "WWW::LacunaExpanse::Schema::LinkBodyOre",
+  "WWW::LacunaExpanse::Schema::Result::LinkBodyOre",
   { id => "ore_id" },
 );
 

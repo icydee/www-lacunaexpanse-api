@@ -61,6 +61,20 @@ sub update_my_empire {
     $self->_colonies(\@my_colonies);
 }
 
+# Find a colony by it's name
+#
+sub find_colony {
+    my ($self, $name) = @_;
+
+    my @colonies;
+    for my $colony (@{$self->colonies}) {
+#        print "Testing colony name [".$colony->name."]\n";
+        if ($colony->name =~ m/^$name/i) {
+            push @colonies, $colony;
+        }
+    }
+    return \@colonies;
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

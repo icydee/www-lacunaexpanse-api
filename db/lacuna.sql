@@ -5,7 +5,9 @@ create table star (
     y           integer not null,
     color       text,
     sector      text,
-    scan_date   text
+    scan_date   text,
+    empire_id   integer,
+    status      integer
 );
 
 create table distance (

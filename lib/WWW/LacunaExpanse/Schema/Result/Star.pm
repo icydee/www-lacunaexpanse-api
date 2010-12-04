@@ -50,13 +50,25 @@ __PACKAGE__->add_columns(
         is_nullable     => 1,
         size            => 10,
     },
+    empire_id => {
+        data_type       => "INTEGER",
+        default_value   => undef,
+        is_nullable     => 1,
+        size            => 10,
+    },
+    status => {
+        data_type       => "INTEGER",
+        default_value   => undef,
+        is_nullable     => 1,
+        size            => 10,
+    },
 );
 __PACKAGE__->set_primary_key("id");
 
 # A star may have many bodies
 __PACKAGE__->has_many(
   "bodies",
-  "WWW::LacunaExpanse::Schema::Body",
+  "WWW::LacunaExpanse::Schema::Result::Body",
   { "foreign.star_id" => "self.id" },
 );
 

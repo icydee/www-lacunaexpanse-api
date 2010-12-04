@@ -74,14 +74,14 @@ __PACKAGE__->set_primary_key("id");
 # Every Body has a Star
 __PACKAGE__->belongs_to(
   "star",
-  "WWW::LacunaExpanse::Schema::Star",
+  "WWW::LacunaExpanse::Schema::Result::Star",
   { id => "star_id" },
 );
 
 # A body may have many ores
 __PACKAGE__->has_many(
   "ores",
-  "WWW::LacunaExpanse::Schema::Ore",
+  "WWW::LacunaExpanse::Schema::Result::Ore",
   { "foreign.body_id" => "self.id" },
 );
 

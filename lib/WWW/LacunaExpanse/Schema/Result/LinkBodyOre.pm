@@ -38,14 +38,14 @@ __PACKAGE__->set_primary_key("id");
 # Every LinkBodyOre has a Body
 __PACKAGE__->belongs_to(
   "body",
-  "WWW::LacunaExpanse::Schema::Body",
+  "WWW::LacunaExpanse::Schema::Result::Body",
   { id => "body_id" },
 );
 
 # Every LinkBodyOre has an Ore
 __PACKAGE__->belongs_to(
   "ore",
-  "WWW::LacunaExpanse::Schema::Ore",
+  "WWW::LacunaExpanse::Schema::Result::Ore",
   { id => "ore_id" },
 );
 

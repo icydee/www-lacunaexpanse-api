@@ -53,4 +53,40 @@ use overload '""' => sub {
     return $str;
 };
 
+my $ore_index = {
+    anthracite      => 1,
+    bauxite         => 2,
+    beryl           => 3,
+    chalcopyrite    => 4,
+    chromite        => 5,
+    fluorite        => 6,
+    galena          => 7,
+    goethite        => 8,
+    gold            => 9,
+    gypsum          => 10,
+    halite          => 11,
+    kerogen         => 12,
+    magnetite       => 13,
+    methane         => 14,
+    monazite        => 15,
+    rutile          => 16,
+    sulfur          => 17,
+    trona           => 18,
+    uraninite       => 19,
+    zircon          => 20,
+};
+
+# Return the index for an ore
+#
+sub ore_index {
+    my ($class, $ore_name) = @_;
+
+    return $ore_index->{$ore_name};
+}
+
+# Return all ore names
+#
+sub ore_names {
+    return sort keys %$ore_index;
+}
 1;

@@ -3,8 +3,12 @@ package WWW::LacunaExpanse::API;
 use Moose;
 use Data::Dumper;
 use Carp;
+use Contextual::Return;
 
 use WWW::LacunaExpanse::API::MyEmpire;
+use WWW::LacunaExpanse::API::Cost;
+use WWW::LacunaExpanse::API::VirtualShip;
+use WWW::LacunaExpanse::API::Ship;
 use WWW::LacunaExpanse::API::Empire;
 use WWW::LacunaExpanse::API::EmpireRank;
 use WWW::LacunaExpanse::API::Connection;
@@ -75,16 +79,26 @@ sub _build_my_empire {
 sub find {
     my ($self, $args) = @_;
 
+    my $things;
     if ($args->{empire}) {
-        print "search for empire [".$args->{empire}."]\n";
-        return WWW::LacunaExpanse::API::Empire->find($args->{empire});
+#        print "search for empire [".$args->{empire}."]\n";
+        $things = WWW::LacunaExpanse::API::Empire->find($args->{empire});
     }
 
     if ($args->{star}) {
-        print "search for star [".$args->{star}."]\n";
-        return WWW::LacunaExpanse::API::Star->find($args->{star});
+#        print "search for star [".$args->{star}."]\n";
+        $things = WWW::LacunaExpanse::API::Star->find($args->{star});
     }
 
+    if ($args->{my_colony}) {
+#        print "search for my colony [".$args->{my_colony}."]\n";
+        $things = $self->my_empire->find_colony($args->{my_colony});
+    }
+
+    return (
+        LIST        { @$things;         }
+        SCALAR      { $things->[0];    }
+    );
 }
 
 sub empire_rank {
