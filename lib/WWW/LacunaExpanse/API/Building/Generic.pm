@@ -8,6 +8,7 @@ with 'WWW::LacunaExpanse::API::Role::Connection';
 
 # Attributes
 has 'id'                => (is => 'ro', required => 1);
+has 'body_id'           => (is => 'ro', required => 1);
 has 'url'               => (is => 'ro', required => 1);
 
 my @simple_strings  = qw(name x y image level efficiency food_hour food_capacity energy_hour
@@ -21,7 +22,7 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
 
     __PACKAGE__->meta()->add_method(
         "_build_$attr" => sub {
-print "generic accessing --- $attr\n";
+#print "generic accessing --- $attr\n";
             my ($self) = @_;
             $self->update;
             return $self->$attr;
@@ -35,7 +36,7 @@ print "generic accessing --- $attr\n";
 sub update {
     my ($self) = @_;
 
-print "### calling generic update ###\n";
+#print "### calling generic update ###\n";
 
     $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'view',[$self->connection->session_id, $self->id]);

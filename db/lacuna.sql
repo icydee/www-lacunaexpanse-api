@@ -9,6 +9,9 @@ create table star (
     empire_id   integer,
     status      integer
 );
+--- status
+---    1 - pending
+---    2 - arrived
 
 create table distance (
     id          integer primary key autoincrement,

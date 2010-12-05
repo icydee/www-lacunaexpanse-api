@@ -89,6 +89,7 @@ sub _build_buildings {
             my $building = WWW::LacunaExpanse::API::BuildingFactory->create(
                 $name, {
                     id              => $id,
+                    body_id         => $self->id,
                     name            => $hash->{name},
                     x               => $hash->{x},
                     y               => $hash->{y},

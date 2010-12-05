@@ -59,6 +59,52 @@ sub docked_ships {
     return $ships;
 }
 
+# Get available ships to send to a body
+#
+sub get_available_ships_for {
+    my ($self, $args) = @_;
+
+    $self->connection->debug(1);
+    my $result = $self->connection->call($self->url, 'get_ships_for',[
+        $self->connection->session_id, $self->body_id, $args]);
+    $self->connection->debug(0);
+
+    my @ships;
+    my $body = $result->{result}{available};
+    for my $ship_hash (@{$body}) {
+        my $ship = WWW::LacunaExpanse::API::Ship->new({
+            id                      => $ship_hash->{id},
+            type                    => $ship_hash->{type},
+            name                    => $ship_hash->{name},
+            hold_size               => $ship_hash->{hold_size},
+            speed                   => $ship_hash->{speed},
+            stealth                 => $ship_hash->{stealth},
+            type_human              => $ship_hash->{type_human},
+            task                    => $ship_hash->{task},
+            date_available          => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_available}),
+            date_started            => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_started}),
+            estimated_travel_time   => $ship_hash->{estimated_travel_time},
+        });
+        push @ships, $ship;
+    }
+    return \@ships;
+}
+
+
+# Send a ship to a target
+#
+sub send_ship {
+    my ($self, $ship_id, $args) = @_;
+
+    $self->connection->debug(1);
+    my $result = $self->connection->call($self->url, 'send_ship',[
+        $self->connection->session_id, $ship_id, $args]);
+    $self->connection->debug(0);
+
+    # Should return a status block here TBD
+
+}
+
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

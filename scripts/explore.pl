@@ -13,6 +13,7 @@ use DateTime;
 use lib "$Bin/../lib";
 use WWW::LacunaExpanse::API;
 use WWW::LacunaExpanse::Schema;
+use WWW::LacunaExpanse::API::DateTime;
 
 #### Configuration ####
 my $uri             = 'https://us1.lacunaexpanse.com';
@@ -138,37 +139,29 @@ STAR:
         if (@{$star->bodies}) {
             print "Star (".$star->name.") has already been probed\n";
             print "    (".scalar(@{$star->bodies}).")\n";
-            # Save the data in the database
 
+            # Save the data in the database
             _save_probe_data($schema, $star);
 
         }
         else {
-            print "Star (".$star->name.") has NOT been probed\n";
+            print "Star (".$star->name.") has NOT been probed. Try to send a probe now\n";
+
+            my $available_ships = $space_port->get_available_ships_for({ star_id => $star->id });
+            my ($probe) = grep {$_->type eq 'probe'} @$available_ships;
+
+            if ($probe) {
+                print "Sending probe ID ".$probe->id."\n";
+                $space_port->send_ship($probe->id, {star_id => $star->id});
+            }
+            else {
+                print "Warning: Cannot find a probe to send\n";
+            }
         }
     }
 }
 
 exit;
-
-
-my $next_distance_rs = $schema->resultset('Distance')->search_rs({
-    from_id             => $centre_star->id,
-    'to_star.status'    => undef,
-    }
-    ,{
-        join        => 'to_star',
-        order_by    => 'distance',
-    });
-
-my $star = $next_distance_rs->next->to_star;
-print "Star = [".$star->name."] (".$star->x."/".$star->y.")\n";
-#print Dumper(\$star);
-exit;
-
-print "Nearest star is [".$star->name."]\n";
-exit;
-
 
 # Save probe data in database
 
