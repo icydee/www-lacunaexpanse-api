@@ -1,2 +1,0 @@
-public key:     c200634c-7feb-4001-8d70-d48eb3ff532c
-private key:    207fdfe5-4b47-489c-a11a-26507193910a
