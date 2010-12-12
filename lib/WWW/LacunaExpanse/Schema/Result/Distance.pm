@@ -42,7 +42,7 @@ __PACKAGE__->belongs_to(
   { id => "from_id" },
 );
 
-# Every Distance has a To Body
+# Every Distance has a To Star
 __PACKAGE__->belongs_to(
   "to_star",
   "WWW::LacunaExpanse::Schema::Result::Star",

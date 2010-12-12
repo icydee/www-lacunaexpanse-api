@@ -16,5 +16,6 @@ has 'type_human'        => (is => 'rw');
 has 'can'               => (is => 'rw');
 has 'reason_code'       => (is => 'rw');
 has 'reason_text'       => (is => 'rw');
+has 'date_completed'    => (is => 'rw');
 
 1;

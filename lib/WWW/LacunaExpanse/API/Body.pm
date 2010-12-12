@@ -58,7 +58,6 @@ use overload '""' => sub {
 sub update {
     my ($self) = @_;
 
-#print "update\n";
     $self->connection->debug(0);
     my $result = $self->connection->call($path, 'get_status',[$self->connection->session_id, $self->id]);
     $self->connection->debug(0);
@@ -70,7 +69,6 @@ sub update {
     $self->date_strings($body, \@date_strings);
 
     # other strings
-#print "### water = [".$body->{water}."] ###\n";
     if ($body->{water}) {
         $self->_water($body->{water});
     }

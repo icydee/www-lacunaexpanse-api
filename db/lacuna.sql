@@ -9,9 +9,14 @@ create table star (
     empire_id   integer,
     status      integer
 );
+--- scan_date
+---    the date the scan was made.
+---    null - the scan has not been made yet
 --- status
----    1 - pending
----    2 - arrived
+---    1 - probe is travelling
+---    2 - alliance member sent probe
+---    3 - we sent the probe
+---    4 - we deleted the probe from the observatory
 
 create table distance (
     id          integer primary key autoincrement,
@@ -19,7 +24,7 @@ create table distance (
     to_id       integer,
     distance    integer,
     foreign key(from_id) references body(id),
-    foreign key(to_id) references body(id)
+    foreign key(to_id) references star(id)
 );
 create index idx_distance__from_id on distance(from_id);
 create index idx_distance__to_id on distance(to_id);

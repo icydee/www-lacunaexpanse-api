@@ -7,9 +7,14 @@ use Data::Dumper;
 extends 'WWW::LacunaExpanse::API::Building::Generic';
 
 # Attributes
+has 'page_number'       => (is => 'rw', default => 1);
+has 'index'             => (is => 'rw', default => 0);
 
 my @simple_strings_1    = qw(max_ships docks_available);
-my @other_strings_1    = qw(docked_hash);
+my @other_strings_1     = qw(docked_hash);
+
+my @simple_strings_2    = qw(number_of_ships);
+my @other_strings_2     = qw(ships);
 
 for my $attr (@simple_strings_1, @other_strings_1) {
     has $attr => (is => 'ro', writer => "_$attr", lazy_build => 1);
@@ -23,8 +28,135 @@ for my $attr (@simple_strings_1, @other_strings_1) {
     );
 }
 
+for my $attr (@simple_strings_2, @other_strings_2) {
+    has $attr => (is => 'ro', writer => "_$attr", lazy_build => 1);
+
+    __PACKAGE__->meta()->add_method(
+        "_build_$attr" => sub {
+            my ($self) = @_;
+            $self->view_all_ships;
+            return $self->$attr;
+        }
+    );
+}
+
+# Reset to the first record
+#
+sub reset_ship {
+    my ($self) = @_;
+
+    $self->index(0);
+    $self->page_number(1);
+}
+
+# Return the next Ship in the List
+#
+sub next_ship {
+    my ($self) = @_;
+
+    if ($self->index >= $self->number_of_ships) {
+        return;
+    }
+
+    my $page_number = int($self->index / 25) + 1;
+    if ($page_number != $self->page_number) {
+        $self->page_number($page_number);
+        $self->view_all_ships;
+    }
+    my $ship = $self->ships->[$self->index % 25];
+    $self->index($self->index + 1);
+    return $ship;
+}
+
+# Return all ships (or all ships of a particular type)
+#
+sub all_ships {
+    my ($self, $type) = @_;
+
+    my @ships;
+    $self->reset_ship;
+    while (my $ship = $self->next_ship) {
+        if ($type) {
+            if ($ship->type eq $type) {
+                push @ships, $ship;
+            }
+        }
+        else {
+            push @ships, $ship;
+        }
+    }
+
+    return @ships;
+}
+
+
+# Return the total number of ships
+#
+sub count_ships {
+    my ($self) = @_;
+
+    return $self->number_of_ships;
+}
+
 # Refresh the object from the Server
 #
+sub view_all_ships {
+    my ($self) = @_;
+
+    $self->connection->debug(0);
+    my $result = $self->connection->call($self->url, 'view_all_ships',[
+        $self->connection->session_id, $self->id, $self->page_number]);
+
+    $self->connection->debug(0);
+
+    $result = $result->{result};
+
+    $self->simple_strings($result, \@simple_strings_2);
+
+
+    # other strings
+    my @ships;
+    for my $ship_hash (@{$result->{ships}}) {
+
+        my $ship = WWW::LacunaExpanse::API::Ship->new({
+            id              => $ship_hash->{id},
+            type            => $ship_hash->{type},
+            name            => $ship_hash->{name},
+            hold_size       => $ship_hash->{hold_size},
+            speed           => $ship_hash->{speed},
+            stealth         => $ship_hash->{stealth},
+            type_human      => $ship_hash->{type_human},
+            task            => $ship_hash->{task},
+            date_available  => 'TBD',
+            date_started    => 'TBD',
+            date_arrives    => 'TBD',
+            from            => 'TBD',
+            to              => 'TBD',
+        });
+
+        push @ships, $ship;
+    }
+    $self->_ships(\@ships);
+}
+
+
+sub total_pages {
+    my ($self) = @_;
+
+    return int($self->number_of_ships / 25);
+}
+
+
+# Refresh the object from the Server
+#
+sub refresh {
+    my ($self) = @_;
+
+    $self->get_summary;
+    $self->view_all_ships;
+}
+
+
 sub get_summary {
     my ($self) = @_;
 
@@ -47,7 +179,6 @@ sub get_summary {
 sub docked_ships {
     my ($self, $type) = @_;
 
-#print Dumper(\$self->docked_hash());
     if ($type) {
         if ($self->docked_hash()->{$type}) {
             return $self->docked_hash()->{$type};
@@ -64,7 +195,7 @@ sub docked_ships {
 sub get_available_ships_for {
     my ($self, $args) = @_;
 
-    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'get_ships_for',[
         $self->connection->session_id, $self->body_id, $args]);
     $self->connection->debug(0);
@@ -96,12 +227,16 @@ sub get_available_ships_for {
 sub send_ship {
     my ($self, $ship_id, $args) = @_;
 
-    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'send_ship',[
         $self->connection->session_id, $ship_id, $args]);
     $self->connection->debug(0);
 
-    # Should return a status block here TBD
+    # Should return a status block here.
+    # For now just return the date it arrives.
+    my $body = $result->{result}{ship};
+    my $arrival_date = WWW::LacunaExpanse::API::DateTime->from_lacuna_string($body->{date_arrives});
+    return $arrival_date;
 
 }
 

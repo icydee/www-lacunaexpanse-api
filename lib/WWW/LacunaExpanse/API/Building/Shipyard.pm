@@ -7,6 +7,8 @@ use Data::Dumper;
 extends 'WWW::LacunaExpanse::API::Building::Generic';
 
 # Attributes
+has 'page_number'       => (is => 'rw', default => 1);
+has 'index'             => (is => 'rw', default => 0);
 
 my @simple_strings_1    = qw(docks_available);
 my @simple_strings_2    = qw(number_of_ships_building cost_to_subsidize);
@@ -39,6 +41,15 @@ for my $attr (@simple_strings_2, @other_strings_2) {
 
 # Refresh the object from the Server
 #
+sub refresh {
+    my ($self) = @_;
+
+    $self->get_buildable;
+    $self->view_build_queue;
+    $self->reset_ship;
+}
+
+
 sub get_buildable {
     my ($self) = @_;
 
@@ -96,7 +107,7 @@ sub ship_build_status {
 sub build_ship {
     my ($self, $ship_type) = @_;
 
-    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'build_ship',[
         $self->connection->session_id, $self->id, $ship_type]);
     $self->connection->debug(0);
@@ -107,7 +118,55 @@ sub build_ship {
 sub view_build_queue {
     my ($self) = @_;
 
+    $self->connection->debug(0);
+    my $result = $self->connection->call($self->url, 'view_build_queue',[
+        $self->connection->session_id, $self->id, $self->page_number]);
+    $self->connection->debug(0);
 
+    my $body = $result->{result};
+
+    $self->simple_strings($body, \@simple_strings_2);
+
+    # other strings
+    my @ships_building;
+    for my $ship_hash (@{$body->{ships_building}}) {
+        my $virtual_ship = WWW::LacunaExpanse::API::VirtualShip->new({
+            type            => $ship_hash->{type},
+            type_human      => $ship_hash->{type_human},
+            date_completed  => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_completed}),
+        });
+        push @ships_building, $virtual_ship;
+    }
+    $self->_ships_building(\@ships_building);
+
+}
+
+# Reset to the first record
+#
+sub reset_ship {
+    my ($self) = @_;
+
+    $self->index(0);
+    $self->page_number(1);
+}
+
+# Return the next page of results
+#
+sub next_ship {
+    my ($self) = @_;
+
+    if ($self->index >= $self->number_of_ships_building) {
+        return;
+    }
+
+    my $page_number = int($self->index / 25) + 1;
+    if ($page_number != $self->page_number) {
+        $self->page_number($page_number);
+        $self->view_build_queue;
+    }
+    my $ship = $self->ships_building->[$self->index % 25];
+    $self->index($self->index + 1);
+    return $ship;
 }
 
 no Moose;

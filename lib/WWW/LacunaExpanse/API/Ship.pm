@@ -14,6 +14,7 @@ has 'type_human'        => (is => 'rw');
 has 'task'              => (is => 'rw');
 has 'date_available'    => (is => 'rw');
 has 'date_started'      => (is => 'rw');
+has 'date_arrives'      => (is => 'rw');
 has 'estimated_travel_time' => (is => 'rw');
 
 1;

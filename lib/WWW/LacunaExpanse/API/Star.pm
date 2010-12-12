@@ -138,7 +138,7 @@ sub find {
 # Check for incoming probe
 # returns undefined if no probe is arriving
 #
-sub incoming_probe {
+sub check_for_incoming_probe {
     my ($self) = @_;
 
     $self->connection->debug(0);

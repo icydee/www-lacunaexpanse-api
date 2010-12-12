@@ -64,6 +64,16 @@ sub count_probed_stars {
 
 # Refresh the object from the Server
 #
+
+# Refresh the object from the Server
+#
+sub refresh {
+    my ($self) = @_;
+
+    $self->update_observatory;
+    $self->reset_probed_star;
+}
+
 sub update_observatory {
     my ($self) = @_;
 
@@ -98,6 +108,17 @@ sub update_observatory {
     $self->_probed_stars(\@probed_stars);
 }
 
+# Abandon a probe
+#
+sub abandon_probe {
+    my ($self, $star_id) = @_;
+
+    $self->connection->debug(0);
+    my $result = $self->connection->call($self->url, 'abandon_probe',[
+        $self->connection->session_id, $self->id, $star_id]);
+
+    $self->connection->debug(0);
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
