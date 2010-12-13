@@ -17,6 +17,7 @@ create table star (
 ---    2 - alliance member sent probe
 ---    3 - we sent the probe
 ---    4 - we deleted the probe from the observatory
+---    5 - probe was sent manually (not by this script)
 
 create table distance (
     id          integer primary key autoincrement,
