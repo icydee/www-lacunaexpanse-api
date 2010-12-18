@@ -134,6 +134,15 @@ sub shipyard {
     return $shipyard;
 }
 
+# Return all buildings of a particular type
+#
+sub building_type {
+    my ($self, $building_type) = @_;
+
+    my @buildings = grep {$_->name eq $building_type} @{$self->buildings};
+    return \@buildings;
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 1;

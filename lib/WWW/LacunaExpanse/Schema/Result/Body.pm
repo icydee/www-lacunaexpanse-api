@@ -85,4 +85,11 @@ __PACKAGE__->has_many(
   { "foreign.body_id" => "self.id" },
 );
 
+# A body may have many excavations
+__PACKAGE__->has_many(
+  "excavations",
+  "WWW::LacunaExpanse::Schema::Result::Excavation",
+  { "foreign.body_id" => "self.id" },
+);
+
 1;
