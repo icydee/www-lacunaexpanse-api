@@ -2,6 +2,7 @@ package WWW::LacunaExpanse::Agent::ShipBuilder;
 
 use Moose;
 use Carp;
+use Data::Dumper;
 
 use WWW::LacunaExpanse::API::DateTime;
 
@@ -19,6 +20,7 @@ use WWW::LacunaExpanse::API::DateTime;
 #
 
 # Attributes
+has 'colony'            => (is => 'rw');
 has 'shipyard'          => (is => 'rw');
 has 'space_port'        => (is => 'rw');
 has 'required'          => (is => 'rw');
@@ -47,60 +49,60 @@ sub requirement {
 sub update {
     my ($self) = @_;
 
-    # default is to wait 15 minutes for next update
-    my $to_wait = 15 * 60 * 60;
-
-    my $now = WWW::LacunaExpanse::API::DateTime->now;
+    # default is to wait 30 minutes for next update
+    my $to_wait = 30 * 60;
+    print "Agent::ShipBuilder - Colony ".$self->colony->name." shipyard ".$self->shipyard->x."/".$self->shipyard->y."\n";
+    my $now = WWW::LacunaExpanse::API::DateTime->new;
     # If the shipyard is empty, then see what we can build next
     my $ships_building = $self->shipyard->number_of_ships_building;
-    my $final_date_complete = $now;
+    my $final_date_completed;
 
     if ($ships_building) {
+        # We don't build if the shipyard is in use
         $self->shipyard->reset_ship;
+        print "Can't build just yet, shipyard still in use\n";
 
         while (my $ship_building = $self->shipyard->next_ship) {
-            print "Ship being built until ".$ship_building->date_completed."\n";
-            if ($ship_building->date_completed > $final_date_complete) {
-                $final_date_complete = $ship_building->date_completed;
+#            print "Ship being built until ".$ship_building->date_completed."\n";
+            if (! $final_date_completed || $ship_building->date_completed > $final_date_completed) {
+                $final_date_completed = $ship_building->date_completed;
+#                print "CHANGE: date completed to $final_date_completed\n";
             }
         }
         # convert the time to wait into seconds
-        my $dt = $final_date_complete->delta_ms($now);
-        my $to_wait = $dt->minutes * 60 + $dt->seconds;
+        $to_wait = $final_date_completed->gps_seconds_since_epoch - $now->gps_seconds_since_epoch;
     }
     else {
-        print "There are no ships being built\n";
+        # Work out from the queue, what ship should be built next
+        my @types = sort {$self->required->{$a}{priority} <=> $self->required->{$b}{priority}} keys %{$self->required};
+        my @ships = $self->space_port->all_ships;
+
+SHIP_TYPE:
+        for my $type (@types) {
+            # Are there sufficient of this ship type already?
+
+            my $quantity = scalar grep {$_->type eq $type} @ships;
+#            print "There are $quantity ships of type $type currently\n";
+            if ($quantity < $self->required->{$type}{quantity}) {
+                # Check if we can build this ship type
+                my $buildable = $self->shipyard->ship_build_status($type);
+#                print Dumper($buildable);
+                if ($buildable->can eq 'BUILD') {
+                    # Build this ship type
+                    $self->shipyard->build_ship($type);
+                    print "BUILDING SHIP type $type\n";
+                    last SHIP_TYPE;
+                }
+                else {
+                    print "Cannot build ship type '$type', reason ".$buildable->reason_text."\n";
+                }
+            }
+        }
     }
-    print "We have to wait $to_wait seconds until $final_date_complete\n";
+    # round down and allow a further 30 seconds delay
+    $to_wait = int($to_wait) + 30;
+    print "We have to wait $to_wait seconds\n";
     return $to_wait;
-}
-
-
-# requires_resources
-#   determine what resources are required, either now or soon
-#   the necessary resources (cost) and time
-#
-sub requires_resources {
-    my ($self) = @_;
-
-    my $build_status = $self->shipyard->ship_build_status($self->ship_type);
-    return $build_status->cost;
-}
-
-# can_build
-#   permission is granted to build (if you can)
-#
-sub can_build {
-    my ($self) = @_;
-
-    my $build_status = $self->shipyard->ship_build_status($self->ship_type);
-    if ( ! $build_status->can ) {
-        # Can not build yet
-        return;         # Can not build yet
-    }
-
-    $self->shipyard->build_ship($self->ship_type);
-    return 1;
 }
 
 1;

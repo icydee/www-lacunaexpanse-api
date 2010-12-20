@@ -19,8 +19,8 @@ use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
 
 #### Configuration ####
-my $username                = 'your_username';
-my $password                = 'your_password';
+my $username                = 'username';
+my $password                = 'password';
 
 my $uri                     = 'https://us1.lacunaexpanse.com';
 my $dsn                     = "dbi:SQLite:dbname=$Bin/../db/lacuna.db";

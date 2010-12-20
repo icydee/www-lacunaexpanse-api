@@ -107,10 +107,17 @@ sub ship_build_status {
 sub build_ship {
     my ($self, $ship_type) = @_;
 
-    $self->connection->debug(0);
-    my $result = $self->connection->call($self->url, 'build_ship',[
-        $self->connection->session_id, $self->id, $ship_type]);
-    $self->connection->debug(0);
+    eval {
+        $self->connection->debug(0);
+        my $result = $self->connection->call($self->url, 'build_ship',[
+            $self->connection->session_id, $self->id, $ship_type]);
+        $self->connection->debug(0);
+    };
+    if ($@) {
+        print $@;
+        return;
+    }
+    return 1;
 }
 
 # Refresh the build queue from the server
