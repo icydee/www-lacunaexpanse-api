@@ -14,10 +14,10 @@ create table star (
 ---    null - the scan has not been made yet
 --- status
 ---    1 - probe is travelling
----    2 - alliance member sent probe
----    3 - we sent the probe
----    4 - we deleted the probe from the observatory
----    5 - probe was sent manually (not by this script)
+---    2 - another colony or an alliance member sent the probe
+---    3 - our probe is present at the star
+---    4 - the probe can now be abandoned (all bodies have been excavated)
+---    5 - we deleted the probe from the observatory
 
 create table distance (
     id          integer primary key autoincrement,

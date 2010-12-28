@@ -54,13 +54,14 @@ sub update {
     print "Agent::ShipBuilder - Colony ".$self->colony->name." shipyard ".$self->shipyard->x."/".$self->shipyard->y."\n";
     my $now = WWW::LacunaExpanse::API::DateTime->new;
     # If the shipyard is empty, then see what we can build next
+    $self->shipyard->refresh;
     my $ships_building = $self->shipyard->number_of_ships_building;
     my $final_date_completed;
 
     if ($ships_building) {
         # We don't build if the shipyard is in use
         $self->shipyard->reset_ship;
-        print "Can't build just yet, shipyard still in use\n";
+        print "Can't build just yet, shipyard still in use ($ships_building)\n";
 
         while (my $ship_building = $self->shipyard->next_ship) {
 #            print "Ship being built until ".$ship_building->date_completed."\n";
@@ -90,6 +91,8 @@ SHIP_TYPE:
                 if ($buildable->can eq 'BUILD') {
                     # Build this ship type
                     $self->shipyard->build_ship($type);
+                    $self->shipyard->refresh;
+                    $self->space_port->refresh;
                     print "BUILDING SHIP type $type\n";
                     last SHIP_TYPE;
                 }

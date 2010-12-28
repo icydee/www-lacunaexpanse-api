@@ -15,6 +15,7 @@ use WWW::LacunaExpanse::API::Connection;
 use WWW::LacunaExpanse::API::Body;
 use WWW::LacunaExpanse::API::Colony;
 use WWW::LacunaExpanse::API::MyColony;
+use WWW::LacunaExpanse::API::Inbox;
 use WWW::LacunaExpanse::API::Star;
 use WWW::LacunaExpanse::API::Ores;
 use WWW::LacunaExpanse::API::DateTime;
@@ -23,14 +24,16 @@ use WWW::LacunaExpanse::API::EmpireStats;
 use WWW::LacunaExpanse::API::BuildingFactory;
 use WWW::LacunaExpanse::API::Building::Timer;
 use WWW::LacunaExpanse::API::Building::SpacePort;
+use WWW::LacunaExpanse::API::Building::ArchaeologyMinistry;
 
 # This is the base class for the API
 
-# Private attributes
+# Attributes
 has 'uri'           => (is => 'ro', required => 1);
 has 'username'      => (is => 'ro', required => 1);
 has 'password'      => (is => 'ro', required => 1);
 has 'my_empire'     => (is => 'ro', lazy_build => 1);
+has 'inbox'         => (is => 'ro', lazy_build => 1);
 has 'connection'    => (is => 'ro', lazy_build => 1);
 
 my $status;
@@ -53,6 +56,17 @@ sub _build_connection {
     my ($self) = @_;
 
     return WWW::LacunaExpanse::API::Connection->instance;
+}
+
+# Lazy build of Inbox
+#
+sub _build_inbox {
+    my ($self) = @_;
+
+    my $inbox = WWW::LacunaExpanse::API::Inbox->new({
+    });
+
+    return $inbox;
 }
 
 # Lazy build of My Empire

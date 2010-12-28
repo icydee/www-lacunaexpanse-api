@@ -85,6 +85,15 @@ sub update {
                     $ores->$ore($ores_hash->{$ore});
                 }
             }
+            # Empire
+            my $empire;
+            my $empire_hash = $body_hash->{empire};
+            if ($empire_hash) {
+                $empire = WWW::LacunaExpanse::API::Empire->new({
+                    id      => $empire_hash->{id},
+                    name    => $empire_hash->{name},
+                });
+            }
 
             my $star    = $self;
             my $water   = $body_hash->{water} || 0;
@@ -99,7 +108,7 @@ sub update {
                 x       => $body_hash->{x},
                 y       => $body_hash->{y},
                 ore     => $ores,
-                empire  => $self,
+                empire  => $empire,
                 star    => $star,
             });
             push @bodies, $body;

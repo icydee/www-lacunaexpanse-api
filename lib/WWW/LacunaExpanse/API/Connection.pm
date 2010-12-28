@@ -65,6 +65,7 @@ sub call {
         print "request = [".$req->as_string."]\n";
         print "#######################################\n\n";
     }
+    print '.';
     my $resp = $self->user_agent->request($req);
 
 #    print "response = [".$resp->as_string."]\n";

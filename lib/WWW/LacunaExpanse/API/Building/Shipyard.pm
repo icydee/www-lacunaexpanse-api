@@ -117,6 +117,7 @@ sub build_ship {
         print $@;
         return;
     }
+
     return 1;
 }
 

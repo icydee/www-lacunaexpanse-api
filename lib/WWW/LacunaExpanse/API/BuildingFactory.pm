@@ -8,9 +8,10 @@ use Carp;
 # hash of Buildings that have a non-generic building type
 #
 my $specials = {
-    SpacePort       => 1,
-    Observatory     => 1,
-    Shipyard        => 1,
+    SpacePort               => 1,
+    Observatory             => 1,
+    Shipyard                => 1,
+    ArchaeologyMinistry     => 1,
 };
 
 implementation_class_via sub {
