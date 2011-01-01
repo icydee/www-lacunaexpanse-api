@@ -65,7 +65,13 @@ sub call {
         print "request = [".$req->as_string."]\n";
         print "#######################################\n\n";
     }
-    print '.';
+    {
+        # Disable buffering
+        my $ofh = select STDOUT;
+        $| = 1;
+        print '.';
+        select $ofh;
+    }
     my $resp = $self->user_agent->request($req);
 
 #    print "response = [".$resp->as_string."]\n";

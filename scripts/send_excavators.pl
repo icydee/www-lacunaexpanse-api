@@ -25,6 +25,8 @@ my $uri                     = 'https://us1.lacunaexpanse.com';
 my $dsn                     = "dbi:SQLite:dbname=$Bin/../db/lacuna.db";
 
 my $centre_star_name        = 'Lio Easphai';    # Name of star to act as centre of search pattern
+my $probe_colony_name       = 'icydee 4';       # Colony to devote to sending out probes
+my @excavator_colony_names  = ('icydee 5','icydee 6','icydee 7','icydee 8');
 
 #### End of Configuration ####
 
@@ -39,124 +41,166 @@ my $api = WWW::LacunaExpanse::API->new({
 my $my_empire = $api->my_empire;
 my $centre_star = $api->find({ star => $centre_star_name }) || die "Cannot find star ($centre_star_name)";
 
-########################################################################
-### Ensure we have calculated all the distances from the centre body ###
-########################################################################
-
-# We calculate the distance from the central star to all other stars in the
-# universe and hold the distances in the SQL database. This makes it easier
-# to determine the next closest star with a simple query
+# This script is intended to be run continuously. To stop it hit ctrl-c
 #
-# NOTE: this can take a little while, but it is only needed once for each
-# search loci.
-#
-my $distance_count  = $schema->resultset('Distance')->search({from_id => $centre_star->id})->count;
-my $star_count      = $schema->resultset('Star')->search()->count;
-#print "Distance_count=$distance_count star_count=$star_count\n";
 
-if ($distance_count != $star_count) {
-    # Re-initialise the distance table
-    $schema->resultset('Distance')->search({from_id => $centre_star->id})->delete;
-    my $star_rs = $schema->resultset('Star')->search_rs({});
-
-    while (my $star = $star_rs->next) {
-        my $distance = int(sqrt(($star->x - $centre_star->x)**2 + ($star->y - $centre_star->y)**2));
-        $schema->resultset('Distance')->create({
-            from_id     => $centre_star->id,
-            to_id       => $star->id,
-            distance    => $distance,
-        });
-        print "[".$star->id."]\tDistance to star ".$star->name." (".$star->x."|".$star->y.") is $distance\n" ;
+# Find all colonies which have excavators
+my @colonies;
+for my $colony (@{$my_empire->colonies}) {
+    if (grep {$_ eq $colony->name} @excavator_colony_names) {
+        push @colonies, $colony;
     }
 }
 
-# This script is intended to be run continuously. To stop it hit ctrl-c
-#
+my ($probe_colony)  = grep {$_->name eq $probe_colony_name} @{$my_empire->colonies};
+my $observatory     = $probe_colony->observatory;
+
 RESCAN:
 while (1) {
 
-    # Get a result set of stars ordered by distance
+    $observatory->refresh;
+    my $probed_star = $observatory->next_probed_star;
+    if ($probed_star) {
 
-    my $distance_rs = $schema->resultset('Distance')->search_rs({
-        from_id             => $centre_star->id,
-        'to_star.status'    => 3,
-        }
-        ,{
-            join        => 'to_star',
-            order_by    => 'distance',
-        });
-    my $distance    = $distance_rs->first;
-    if ($distance) {
-        my $star        = $distance->to_star;
-        my $body_rs     = $star->bodies;
-        my $body        = $body_rs->first;
+        my ($db_star, $db_body_rs, $db_body);
 
-        # Find all colonies which have excavators
-        my @colonies = @{$my_empire->colonies};
+        _save_probe_data($schema, $probed_star, 3);
+        $db_star    = $schema->resultset('Star')->find($probed_star->id);
+        $db_body_rs = $db_star->bodies;
+        $db_body    = $db_body_rs->first;
 
 COLONY:
-        for my $colony (@colonies) {
-            my $space_port = $colony->space_port;
+        for my $colony (sort {$a->name cmp $b->name} @colonies) {
 
+            my $space_port  = $colony->space_port;
             next COLONY if ! $space_port;
+            my @excavators;
 
             $space_port->refresh;
-            my @excavators = grep {$_->task eq 'Docked'} $space_port->all_ships('excavator');
+
+            @excavators = $space_port->all_ships('excavator','Docked');
             print "Colony ".$colony->name." has ".scalar(@excavators)." docked excavators\n";
+            next COLONY unless @excavators;
 
             # Send to a body around the next closest star
 EXCAVATOR:
-            while ($distance && @excavators) {
-                print "checking next closest body\n";
-                if ( ! $body ) {
+            while (@excavators && $probed_star) {
+                print "checking next closest body ".$probed_star->name."\n";
+                if ( ! $db_body ) {
                     # Mark the star as exhausted, the probe can be abandoned
-                    print "Star ".$star->name." has no more unexcavated bodies\n";
+                    print "Star ".$probed_star->name." has no more unexcavated bodies\n";
+                    $db_star->status(5);
+                    $db_star->update;
+                    $observatory->abandon_probe($probed_star->id);
+                    $observatory->refresh;
 
-                    $star->status(4);
-                    $star->update;
-                    $distance   = $distance_rs->next;
-                    last EXCAVATOR unless $distance;
+                    $probed_star = $observatory->next_probed_star;
+                    last EXCAVATOR unless $probed_star;
 
-                    $star       = $distance->to_star;
-                    $body_rs    = $star->bodies;
-                    $body       = $body_rs->first;
+                    _save_probe_data($schema, $probed_star);
+                    $db_star    = $schema->resultset('Star')->find($probed_star->id);
+                    $db_body_rs = $db_star->bodies;
+                    $db_body    = $db_body_rs->first;
+
                     next EXCAVATOR;
                 }
                 # If the body is occupied, ignore it
-                if ($body->empire_id) {
-                    print "Body ".$body->name." is occupied, ignore it\n";
-                    $body = $body_rs->next;
-                    if ( ! $body ) {
+                if ($db_body->empire_id) {
+                    print "Body ".$db_body->name." is occupied, ignore it\n";
+                    $db_body = $db_body_rs->next;
+                    if ( ! $db_body ) {
                         next EXCAVATOR;
                     }
                 }
 
-                print "Trying to send to ".$body->name."\n";
+                print "Trying to send to ".$db_body->name."\n";
                 # Get all excavators that can be sent to this planet
-                my @excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $body->id })};
+                my @excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $db_body->id })};
+
                 if ( ! @excavators ) {
-                    @excavators = grep {$_->task eq 'Docked'} $space_port->all_ships('excavator');
+                    @excavators = $space_port->all_ships('excavator','Docked');
+
+                    print "Colony XXX ".$colony->name." has ".scalar(@excavators)." docked excavators\n";
                     if ( ! @excavators) {
                         # No more excavators at this colony
                         print "No more excavators to send from ".$colony->name."\n";
                         next COLONY;
                     }
-                    print "Can't send excavators to ".$body->name."\n";
-                    $body = $body_rs->next;
+                    print "Can't send excavators to ".$db_body->name."\n";
+                    $db_body = $db_body_rs->next;
                     next EXCAVATOR;
                 }
 
                 my $first_excavator = $excavators[0];
-                $space_port->send_ship($first_excavator->id, {body_id => $body->id});
+                $space_port->send_ship($first_excavator->id, {body_id => $db_body->id});
                 @excavators = grep {$_->id != $first_excavator->id} @excavators;
                 $space_port->refresh;
-                $body = $body_rs->next;
+                $db_body = $db_body_rs->next;
             }
         }
     }
-    print "SENDING EXCAVATORS again in 30 minutes\n\n";
-    sleep(30 * 60);
+    print "SENDING EXCAVATORS again in 60 minutes\n\n";
+    sleep(60 * 60);
 }
 
+# Save probe data in database
+
+sub _save_probe_data {
+    my ($schema, $probed_star) = @_;
+
+    # See if we have previously probed this star
+    my $db_star = $schema->resultset('Star')->find($probed_star->id);
+
+    if ($db_star->scan_date) {
+        print "Previously scanned [".$db_star->name."]. Don't scan again\n";
+        if ($db_star->status == 1) {
+            $db_star->status(3);
+            $db_star->update;
+        }
+    }
+    else {
+        print "Saving scanned data for [".$db_star->name."]\n";
+        for my $body (@{$probed_star->bodies}) {
+            my $db_body = $schema->resultset('Body')->find($body->id);
+            if ( $db_body ) {
+                # We already have the body data, just update the empire data
+                $db_body->empire_id($body->empire ? $body->empire->id : undef);
+                $db_body->update;
+            }
+            else {
+                # We need to create it
+                my $db_body = $schema->resultset('Body')->create({
+                    id          => $body->id,
+                    name        => $body->name,
+                    x           => $body->x,
+                    y           => $body->y,
+                    image       => $body->image,
+                    size        => $body->size,
+                    type        => $body->type,
+                    star_id     => $probed_star->id,
+                    empire_id   => $body->empire ? $body->empire->id : undef,
+                    water       => $body->water,
+                });
+                # Check the ores for this body
+                my $body_ore = $body->ore;
+                for my $ore_name (WWW::LacunaExpanse::API::Ores->ore_names) {
+                    # we only store ore data if the quantity is greater than 1
+                    if ($body_ore->$ore_name > 1) {
+                        my $db_ore = $schema->resultset('LinkBodyOre')->create({
+                            ore_id      => WWW::LacunaExpanse::API::Ores->ore_index($ore_name),
+                            body_id     => $db_body->id,
+                            quantity    => $body_ore->$ore_name,
+                        });
+                    }
+                }
+
+            }
+        }
+        $db_star->scan_date(DateTime->now);
+        $db_star->status(3);
+        $db_star->empire_id($api->my_empire->id);
+        $db_star->update;
+    }
+}
 
 1;

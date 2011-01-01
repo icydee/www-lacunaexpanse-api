@@ -60,7 +60,7 @@ sub update {
 
     if ($ships_building) {
         # We don't build if the shipyard is in use
-        $self->shipyard->reset_ship;
+#>>done in refresh above        $self->shipyard->reset_ship;
         print "Can't build just yet, shipyard still in use ($ships_building)\n";
 
         while (my $ship_building = $self->shipyard->next_ship) {

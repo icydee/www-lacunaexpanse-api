@@ -47,6 +47,7 @@ sub reset_ship {
 
     $self->index(0);
     $self->page_number(1);
+    $self->view_all_ships;
 }
 
 # Return the next Ship in the List
@@ -71,14 +72,21 @@ sub next_ship {
 # Return all ships (or all ships of a particular type)
 #
 sub all_ships {
-    my ($self, $type) = @_;
+    my ($self, $type, $task) = @_;
 
     my @ships;
     $self->reset_ship;
     while (my $ship = $self->next_ship) {
         if ($type) {
             if ($ship->type eq $type) {
-                push @ships, $ship;
+                if ($task) {
+                    if ($ship->task eq $task) {
+                        push @ships, $ship;
+                    }
+                }
+                else {
+                    push @ships, $ship;
+                }
             }
         }
         else {

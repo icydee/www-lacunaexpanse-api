@@ -28,19 +28,19 @@ my $dsn                     = "dbi:SQLite:dbname=$Bin/../db/lacuna.db";
 
 my $ships_required            = {
     'icydee 4'  => {
-        probe       => {quantity => 6, priority => 4},
+        probe       => {quantity => 8, priority => 4},
     },
     'icydee 5'  => {
-        excavator   => {quantity => 10, priority => 3},
+        excavator   => {quantity => 18, priority => 3},
     },
     'icydee 6'  => {
-        excavator   => {quantity => 10, priority => 3},
+        excavator   => {quantity => 16, priority => 3},
     },
     'icydee 7'  => {
-        excavator   => {quantity => 10, priority => 3},
+        excavator   => {quantity => 14, priority => 3},
     },
     'icydee 8'  => {
-        excavator   => {quantity => 10, priority => 3},
+        excavator   => {quantity => 16, priority => 3},
     },
 };
 
@@ -128,8 +128,8 @@ while (1) {
 
     $min_delay = min map {$colony_delay->{$_}} keys %$colony_delay;
 
-    # Wait at least 30 minutes
-    $min_delay = max ($min_delay, 30 * 60);
+    # Wait at least 3 hours
+    $min_delay = max ($min_delay, 180 * 60);
     print "BUILDING SHIPS again in ".int($min_delay/60)." minutes\n";
 
 }
