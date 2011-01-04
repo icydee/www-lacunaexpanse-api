@@ -14,27 +14,26 @@ use FindBin qw($Bin);
 use Data::Dumper;
 use DateTime;
 use List::Util qw(min max);
+use YAML::Any;
 
 use lib "$Bin/../lib";
 use WWW::LacunaExpanse::API;
 use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
 
-#### Configuration ####
-my $username                = 'icydee';
-my $password                = 'secret';
+# Load configurations
 
-my $uri                     = 'https://us1.lacunaexpanse.com';
-my $dsn                     = "dbi:SQLite:dbname=$Bin/../db/lacuna.db";
+my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
+my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
 
-#### End of Configuration ####
+my $dsn = "dbi:SQLite:dbname=$Bin/".$excavate_config->{db_file};
 
 my $schema = WWW::LacunaExpanse::Schema->connect($dsn);
 
 my $api = WWW::LacunaExpanse::API->new({
-    uri         => $uri,
-    username    => $username,
-    password    => $password,
+    uri         => $my_account->{uri},
+    username    => $my_account->{username},
+    password    => $my_account->{password},
 });
 
 # Read all emails, print the subjects
@@ -43,10 +42,10 @@ my $inbox       = $api->inbox;
 my $my_empire   = $api->my_empire;
 
 my $excavator_messages = {
-    'Glyph Discovered!'         => 1,
-    'Resources Discovered!'     => 2,
-    'Excavator Found Nothing'   => 3,
-    'Excavator Uncovered Plan'  => 4,
+    'Glyph Discovered!'         => 0,
+    'Resources Discovered!'     => 0,
+    'Excavator Found Nothing'   => 0,
+    'Excavator Uncovered Plan'  => 0,
 };
 
 print "inbox = $inbox\n";
@@ -60,7 +59,6 @@ while (my $message = $inbox->next_message) {
     if ($message->from_id == $my_empire->id && $message->to_id == $my_empire->id) {
         if ($excavator_messages->{$message->subject}) {
             print $message->date." ".$message->subject."\n";
-#            print $message->body."\n";
             $excavator_messages->{$message->subject}++;
 
             my ($starmap) = $message->body
@@ -100,6 +98,7 @@ while (my $message = $inbox->next_message) {
             }
             elsif ($planet && ! $starmap) {
                 # Found by the archaeology ministry itself
+                push @archive_messages, $message->id;
             }
             elsif (! $resource && ! $glyph && ! $plan) {
                 # Found nothing
@@ -160,7 +159,7 @@ while (my $message = $inbox->next_message) {
 $inbox->archive_messages(\@archive_messages);
 
 for my $key (keys %$excavator_messages) {
-    print $excavator_messages->{$key}, "\t found $key\n";
+    print $excavator_messages->{$key}, "\t $key\n";
 }
 
 

@@ -5,6 +5,7 @@ use FindBin qw($Bin);
 use Data::Dumper;
 use DateTime;
 use List::Util qw(min max);
+use YAML::Any;
 
 use lib "$Bin/../lib";
 use WWW::LacunaExpanse::API;
@@ -12,33 +13,31 @@ use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
 use WWW::LacunaExpanse::Agent::ShipBuilder;
 
-#### Configuration ####
-my $username                = 'icydee';
-my $password                = 'secret';
+# Load configurations
 
-my $uri                     = 'https://us1.lacunaexpanse.com';
-my $dsn                     = "dbi:SQLite:dbname=$Bin/../db/lacuna.db";
+my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
+my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
 
-#### End of Configuration ####
+my $dsn = "dbi:SQLite:dbname=$Bin/".$excavate_config->{db_file};
 
 my $schema = WWW::LacunaExpanse::Schema->connect($dsn);
 
 my $api = WWW::LacunaExpanse::API->new({
-    uri         => $uri,
-    username    => $username,
-    password    => $password,
+    uri         => $my_account->{uri},
+    username    => $my_account->{username},
+    password    => $my_account->{password},
 });
 
 my $colonies = $api->my_empire->colonies;
 my $total_glyph_count;
 
-for my $colony (@$colonies) {
+for my $colony (sort {$a->name cmp $b->name} @$colonies) {
     print $colony->name." at ".$colony->x."/".$colony->y."\n";
     my @archaeologies = @{$colony->building_type('Archaeology Ministry')};
 
     my $colony_glyph_count;
     for my $archaeology (@archaeologies) {
-        print "Archaeology at ".$archaeology->x."/".$archaeology->y."\n";
+#        print "Archaeology at ".$archaeology->x."/".$archaeology->y."\n";
         my @glyphs = @{$archaeology->glyphs};
         for my $glyph (@glyphs) {
             my $glyph_type = $glyph->type;

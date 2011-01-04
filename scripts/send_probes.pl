@@ -17,39 +17,35 @@ use FindBin qw($Bin);
 use Data::Dumper;
 use DateTime;
 use List::Util qw(min max);
+use YAML::Any;
 
 use lib "$Bin/../lib";
 use WWW::LacunaExpanse::API;
 use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
 
-#### Configuration ####
-my $username                = 'icydee';
-my $password                = 'secret';
+# Load configurations
 
-my $uri                     = 'https://us1.lacunaexpanse.com';
-my $dsn                     = "dbi:SQLite:dbname=$Bin/../db/lacuna.db";
+my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
+my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
 
-my $probe_colony_name      = 'icydee 4';       # Colony to devote to sending out probes
-my $centre_star_name        = 'Lio Easphai';    # Name of star to act as centre of search pattern
-
-#### End of Configuration ####
+my $dsn = "dbi:SQLite:dbname=$Bin/".$excavate_config->{db_file};
 
 my $schema = WWW::LacunaExpanse::Schema->connect($dsn);
 
 my $api = WWW::LacunaExpanse::API->new({
-    uri         => $uri,
-    username    => $username,
-    password    => $password,
+    uri         => $my_account->{uri},
+    username    => $my_account->{username},
+    password    => $my_account->{password},
 });
 
 my $my_empire   = $api->my_empire;
 my @colonies    = @{$my_empire->colonies};
-my ($colony)    = grep {$_->name eq $probe_colony_name} @colonies;
+my ($colony)    = grep {$_->name eq $excavate_config->{probe_colony_name}} @colonies;
 
 print "Sending probes from my colony [".$colony->name."] ".$colony->x."/".$colony->y."\n";
 
-my $centre_star = $api->find({ star => $centre_star_name }) || die "Cannot find star ($centre_star_name)";
+my $centre_star = $api->find({ star => $excavate_config->{centre_star_name} }) || die "Cannot find star (".$excavate_config->{centre_star_name},")";
 
 my $observatory = $colony->observatory;
 my $space_port  = $colony->space_port;
@@ -175,9 +171,9 @@ sub _next_star_to_probe {
 
     my ($star, $probe);
 
-    # Locate a star at a random distance from 1000 to 1500
+    # Locate a star at a random distance
 
-    my $distance = int(rand(500)) + 1000;
+    my $distance = int(rand($excavate_config->{max_distance} - $excavate_config->{min_distance})) + $excavate_config->{min_distance};
     print "Probing a distance of $distance\n";
 
     my $distance_rs = $schema->resultset('Distance')->search_rs({

@@ -3,6 +3,7 @@ package WWW::LacunaExpanse::API::Building::SpacePort;
 use Moose;
 use Carp;
 use Data::Dumper;
+use WWW::LacunaExpanse::API::DateTime;
 
 extends 'WWW::LacunaExpanse::API::Building::Generic';
 
@@ -135,9 +136,11 @@ sub view_all_ships {
             stealth         => $ship_hash->{stealth},
             type_human      => $ship_hash->{type_human},
             task            => $ship_hash->{task},
-            date_available  => 'TBD',
-            date_started    => 'TBD',
-            date_arrives    => 'TBD',
+            combat          => $ship_hash->{combat},
+            max_occupants   => $ship_hash->{max_occupants},
+            date_available  => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_available}),
+            date_started    => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_started}),
+            date_arrives    => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_arrives}),
             from            => 'TBD',
             to              => 'TBD',
         });
