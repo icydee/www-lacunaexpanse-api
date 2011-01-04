@@ -11,6 +11,7 @@ has 'type'              => (is => 'rw');
 has 'hold_size'         => (is => 'rw');
 has 'speed'             => (is => 'rw');
 has 'stealth'           => (is => 'rw');
+has 'combat'            => (is => 'rw');
 has 'cost'              => (is => 'rw');
 has 'type_human'        => (is => 'rw');
 has 'can'               => (is => 'rw');
