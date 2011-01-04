@@ -139,7 +139,7 @@ sub refresh {
 sub archive_messages {
     my ($self, $messages) = @_;
 
-    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call('/inbox', 'archive_messages',[
         $self->connection->session_id, $messages]);
 

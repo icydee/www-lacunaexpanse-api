@@ -1,0 +1,18 @@
+# lacuna sqlite database, relative to script directory
+db_file:            '../db/lacuna.db'
+
+# star name to act as centre location for distance calculations, usually your empire star
+centre_star_name:   'Lio Easphai'
+
+# colony name to send out probes from
+probe_colony_name:  'colony 1'
+
+# colony name(s) to send out excavators from. Each must have level 15 Archaeology Ministries
+excavator_colony_names:
+    - 'colony 2'
+    - 'colony 3'
+    - 'colony 4'
+
+# Max and Min distance to send probes and excavators
+min_distance:   600
+max_distance:   1000

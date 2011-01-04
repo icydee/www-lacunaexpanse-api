@@ -11,35 +11,30 @@ use FindBin qw($Bin);
 use Data::Dumper;
 use DateTime;
 use List::Util qw(min max);
+use YAML::Any;
 
 use lib "$Bin/../lib";
 use WWW::LacunaExpanse::API;
 use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
 
-#### Configuration ####
-my $username                = 'icydee';
-my $password                = 'secret';
+# Load configurations
 
-my $uri                     = 'https://us1.lacunaexpanse.com';
-my $dsn                     = "dbi:SQLite:dbname=$Bin/../db/lacuna.db";
+my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
+my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
 
-my $centre_star_name        = 'Lio Easphai';    # Name of star to act as centre of search pattern
-my $probe_colony_name       = 'icydee 4';       # Colony to devote to sending out probes
-my @excavator_colony_names  = ('icydee 5','icydee 6','icydee 7','icydee 8');
-
-#### End of Configuration ####
+my $dsn = "dbi:SQLite:dbname=$Bin/".$excavate_config->{db_file};
 
 my $schema = WWW::LacunaExpanse::Schema->connect($dsn);
 
 my $api = WWW::LacunaExpanse::API->new({
-    uri         => $uri,
-    username    => $username,
-    password    => $password,
+    uri         => $my_account->{uri},
+    username    => $my_account->{username},
+    password    => $my_account->{password},
 });
 
-my $my_empire = $api->my_empire;
-my $centre_star = $api->find({ star => $centre_star_name }) || die "Cannot find star ($centre_star_name)";
+my $my_empire   = $api->my_empire;
+my $centre_star = $api->find({ star => $excavate_config->{centre_star_name} }) || die "Cannot find star (".$excavate_config->{centre_star_name},")";
 
 # This script is intended to be run continuously. To stop it hit ctrl-c
 #
@@ -47,12 +42,15 @@ my $centre_star = $api->find({ star => $centre_star_name }) || die "Cannot find 
 # Find all colonies which have excavators
 my @colonies;
 for my $colony (@{$my_empire->colonies}) {
-    if (grep {$_ eq $colony->name} @excavator_colony_names) {
+    if (grep {$_ eq $colony->name} @{$excavate_config->{excavator_colony_names}}) {
         push @colonies, $colony;
     }
 }
 
-my ($probe_colony)  = grep {$_->name eq $probe_colony_name} @{$my_empire->colonies};
+print "COLONIES: ".join(',', map {$_->name} @colonies)."\n";
+exit;
+
+my ($probe_colony)  = grep {$_->name eq $excavate_config->{probe_colony_name}} @{$my_empire->colonies};
 my $observatory     = $probe_colony->observatory;
 
 RESCAN:
@@ -85,7 +83,7 @@ COLONY:
             # Send to a body around the next closest star
 EXCAVATOR:
             while (@excavators && $probed_star) {
-                print "checking next closest body ".$probed_star->name."\n";
+#                print "checking next closest body ".$probed_star->name."\n";
                 if ( ! $db_body ) {
                     # Mark the star as exhausted, the probe can be abandoned
                     print "Star ".$probed_star->name." has no more unexcavated bodies\n";
@@ -113,14 +111,12 @@ EXCAVATOR:
                     }
                 }
 
-                print "Trying to send to ".$db_body->name."\n";
                 # Get all excavators that can be sent to this planet
                 my @excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $db_body->id })};
 
                 if ( ! @excavators ) {
                     @excavators = $space_port->all_ships('excavator','Docked');
 
-                    print "Colony XXX ".$colony->name." has ".scalar(@excavators)." docked excavators\n";
                     if ( ! @excavators) {
                         # No more excavators at this colony
                         print "No more excavators to send from ".$colony->name."\n";
@@ -131,6 +127,8 @@ EXCAVATOR:
                     next EXCAVATOR;
                 }
 
+                my $distance = int(sqrt(($db_body->x - $colony->x)**2 + ($db_body->y - $colony->y)**2));
+                print "Sending Excavator to '".$db_body->name."' a distance of $distance\n";
                 my $first_excavator = $excavators[0];
                 $space_port->send_ship($first_excavator->id, {body_id => $db_body->id});
                 @excavators = grep {$_->id != $first_excavator->id} @excavators;
@@ -152,14 +150,14 @@ sub _save_probe_data {
     my $db_star = $schema->resultset('Star')->find($probed_star->id);
 
     if ($db_star->scan_date) {
-        print "Previously scanned [".$db_star->name."]. Don't scan again\n";
+        print "Previously scanned star system [".$db_star->name."]. Don't scan again\n";
         if ($db_star->status == 1) {
             $db_star->status(3);
             $db_star->update;
         }
     }
     else {
-        print "Saving scanned data for [".$db_star->name."]\n";
+        print "Saving scanned data for star system [".$db_star->name."]\n";
         for my $body (@{$probed_star->bodies}) {
             my $db_body = $schema->resultset('Body')->find($body->id);
             if ( $db_body ) {

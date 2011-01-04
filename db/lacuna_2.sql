@@ -20,3 +20,12 @@ create table excavation (
 ---                       (for genre 'plan') 'Interdimensional Rift','Volcano'
 ---    resource_qty     = for genre 'resource' the amount of resource, for genre 'plan' the building level
 
+--- table to keep track of API calls per script
+
+create table api_hits (
+    id          integer primary key autoincrement,
+    script      text,
+    on_date     text,
+    hits        integer
+);
+
