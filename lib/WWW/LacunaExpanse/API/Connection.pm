@@ -29,7 +29,9 @@ my $public_key      = 'c200634c-7feb-4001-8d70-d48eb3ff532c';
 sub BUILD {
     my ($self) = @_;
 
-    $self->call('/empire', 'login', [$self->username, $self->password, $public_key]);
+    if (defined($self->{username}) and defined($self->{password})) {
+	$self->call('/empire', 'login', [$self->username, $self->password, $public_key]);
+    }
 }
 
 # lazy build the User Agent
@@ -69,7 +71,7 @@ sub call {
         # Disable buffering
         my $ofh = select STDOUT;
         $| = 1;
-        print '.';
+#        print '.';
         select $ofh;
     }
     my $resp = $self->user_agent->request($req);
@@ -91,7 +93,10 @@ sub call {
         print "#######################################\n\n";
     }
 
-    if ($deflated->{result}{session_id}) {
+    if (!$self->session_id                                          # Skip if we've already got it
+	and exists $deflated->{result}
+	and ref($deflated->{result}) eq 'HASH'                      # unauthenticated calls don't return a HASH ref
+	and exists $deflated->{result}{session_id}) {
         $self->session_id($deflated->{result}{session_id});
     }
 

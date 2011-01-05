@@ -34,8 +34,8 @@ use WWW::LacunaExpanse::API::Building::ArchaeologyMinistry;
 
 # Attributes
 has 'uri'           => (is => 'ro', required => 1);
-has 'username'      => (is => 'ro', required => 1);
-has 'password'      => (is => 'ro', required => 1);
+has 'username'      => (is => 'rw', required => 0);
+has 'password'      => (is => 'rw', required => 0);
 has 'my_empire'     => (is => 'ro', lazy_build => 1);
 has 'inbox'         => (is => 'ro', lazy_build => 1);
 has 'connection'    => (is => 'ro', lazy_build => 1);
@@ -51,7 +51,6 @@ sub BUILD {
         username    => $self->username,
         password    => $self->password,
     });
-
 }
 
 # Lazy build of connection
@@ -78,16 +77,20 @@ sub _build_inbox {
 sub _build_my_empire {
     my ($self) = @_;
 
-    $self->connection->debug(0);
-    my $result = $self->connection->call('/empire', 'get_status',[$self->connection->session_id]);
-    $self->connection->debug(0);
+    my $my_empire = {};
 
-    my $data = $result->{result}{empire};
+    if ($self->connect->session_id) {
+	$self->connection->debug(0);
+	my $result = $self->connection->call('/empire', 'get_status',[$self->connection->session_id]);
+	$self->connection->debug(0);
 
-    my $my_empire = WWW::LacunaExpanse::API::MyEmpire->new({
-        id      => $data->{id},
-        name    => $data->{name},
-    });
+	my $data = $result->{result}{empire};
+
+	my $my_empire = WWW::LacunaExpanse::API::MyEmpire->new({
+	    id      => $data->{id},
+	    name    => $data->{name},
+        });
+    }
 
     return $my_empire;
 }
@@ -127,6 +130,14 @@ sub empire_rank {
     return $empire_rank
 }
 
+sub is_name_available {
+    my ($self, $name) = @_;
+    local $@;
+    
+    my $result = eval { $self->connection->call('/empire', 'is_name_available', [$name]) };
+
+    return $@ ? 0 : $result->{result};
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
