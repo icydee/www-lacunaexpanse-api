@@ -79,16 +79,16 @@ sub _build_my_empire {
 
     my $my_empire = {};
 
-    if ($self->connect->session_id) {
-	$self->connection->debug(0);
-	my $result = $self->connection->call('/empire', 'get_status',[$self->connection->session_id]);
-	$self->connection->debug(0);
+    if ($self->connection->session_id) {
+        $self->connection->debug(0);
+        my $result = $self->connection->call('/empire', 'get_status',[$self->connection->session_id]);
+        $self->connection->debug(0);
 
-	my $data = $result->{result}{empire};
+        my $data = $result->{result}{empire};
 
-	my $my_empire = WWW::LacunaExpanse::API::MyEmpire->new({
-	    id      => $data->{id},
-	    name    => $data->{name},
+        $my_empire = WWW::LacunaExpanse::API::MyEmpire->new({
+            id      => $data->{id},
+            name    => $data->{name},
         });
     }
 
@@ -133,7 +133,7 @@ sub empire_rank {
 sub is_name_available {
     my ($self, $name) = @_;
     local $@;
-    
+
     my $result = eval { $self->connection->call('/empire', 'is_name_available', [$name]) };
 
     return $@ ? 0 : $result->{result};
