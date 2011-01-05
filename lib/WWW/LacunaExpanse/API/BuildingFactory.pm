@@ -12,6 +12,7 @@ my $specials = {
     Observatory             => 1,
     Shipyard                => 1,
     ArchaeologyMinistry     => 1,
+    GeneticsLab             => 1,
 };
 
 implementation_class_via sub {

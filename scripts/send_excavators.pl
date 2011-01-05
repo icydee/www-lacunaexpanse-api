@@ -48,7 +48,6 @@ for my $colony (@{$my_empire->colonies}) {
 }
 
 print "COLONIES: ".join(',', map {$_->name} @colonies)."\n";
-exit;
 
 my ($probe_colony)  = grep {$_->name eq $excavate_config->{probe_colony_name}} @{$my_empire->colonies};
 my $observatory     = $probe_colony->observatory;

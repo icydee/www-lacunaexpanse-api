@@ -28,7 +28,7 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
 sub redefine_species_limits {
     my ($self) = @_;
 
-    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call($path, 'redefine_species_limits',[$self->connection->session_id]);
     $self->connection->debug(0);
 
@@ -39,7 +39,7 @@ sub redefine_species_limits {
 sub redefine_species {
     my ($self, $params) = @_;
 
-    $self->connection->debug(1);
+    $self->connection->debug(0);
     my $result = $self->connection->call($path, 'redefine_species',[$self->connection->session_id, $params]);
     $self->connection->debug(0);
 

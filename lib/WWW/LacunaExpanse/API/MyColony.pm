@@ -112,6 +112,9 @@ sub _build_buildings {
 sub space_port {
     my ($self) = @_;
 
+#    for my $building (@{$self->buildings}) {
+#        print $building->name."\n";
+#    }
     my ($space_port) = grep {$_->name eq 'Space Port'} @{$self->buildings};
     return $space_port;
 }
@@ -132,6 +135,15 @@ sub shipyard {
 
     my ($shipyard) = grep {$_->name eq 'Shipyard'} @{$self->buildings};
     return $shipyard;
+}
+
+# Return the (first) Genetics Lab for this colony
+#
+sub genetics_lab {
+    my ($self) = @_;
+
+    my ($genetics_lab) = grep {$_->name eq 'Genetics Lab'} @{$self->buildings};
+    return $genetics_lab;
 }
 
 # Return all buildings of a particular type
