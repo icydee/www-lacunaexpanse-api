@@ -61,8 +61,9 @@ sub from_lacuna_string {
 sub from_lacuna_email_string {
     my ($class, $date_str) = @_;
 
+#    print "DateTime: [$date_str]\n";
     my ($year,$month,$day,$hour,$minute,$second) = $date_str =~
-        m/(\d\d\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)/;
+        m{(\d\d\d\d)/?(\d\d)/?(\d\d)\s?(\d\d):?(\d\d):?(\d{1,2}?)};
 
     my $dt = DateTime::Precise->new("$year.$month.$day $hour:$minute:$second");
 
@@ -74,5 +75,48 @@ sub from_lacuna_email_string {
     return;
 }
 
+
+#
+# Format seconds as days, hours, minutes and seconds
+#
+sub format_seconds {
+    my ($class, $period) = @_;
+
+    my $seconds     = $period % 60;
+    $period        -= $seconds;
+    $period        /= 60;
+
+    my $minutes     = $period % 60;
+    $period        -= $minutes;
+    $period        /= 60;
+
+    my $hours       = $period % 60;
+    $period        -= $hours;
+    $period        /= 24;
+
+    my $days        = $period;
+    my $str = '';
+    my $blank_lead  = 1;
+    my $blank_tail  = 0;
+
+    if ($days) {
+        $str .= "$days ".($days == 1 ? 'day' : 'days').' ';
+        $blank_lead = 0;
+        $blank_tail = 1 if $hours == 0 && $minutes == 0 && $seconds == 0;
+    }
+    if ($hours || (! $blank_lead && ! $blank_tail)) {
+        $str .= "$hours ".($hours == 1 ? 'hour' : 'hours').' ';
+        $blank_lead = 0;
+        $blank_tail = 1 if $minutes == 0 && $seconds == 0;
+    }
+    if ($minutes || (! $blank_lead && ! $blank_tail)) {
+        $str .= "$minutes ".($minutes == 1 ? 'minute' : 'minutes').' ';
+        $blank_lead = 0;
+    }
+    if (! $blank_tail) {
+        $str .= "$seconds ".($seconds == 1 ? 'second' : 'seconds').' ';
+    }
+    return $str;
+}
 
 1;

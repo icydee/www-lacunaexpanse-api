@@ -57,7 +57,7 @@ MESSAGE:
 while (my $message = $inbox->next_message) {
     # Look only for messages from me, to me
     if ($message->from_id == $my_empire->id && $message->to_id == $my_empire->id) {
-        if ($excavator_messages->{$message->subject}) {
+        if (defined $excavator_messages->{$message->subject}) {
             print $message->date." ".$message->subject."\n";
             $excavator_messages->{$message->subject}++;
 

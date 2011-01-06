@@ -1,6 +1,6 @@
 #!/home/icydee/localperl/bin/perl
 
-# Print a summary of all ships in your empire.
+# Print a summary of all ships in your empire in CSV format
 
 use Modern::Perl;
 use FindBin qw($Bin);

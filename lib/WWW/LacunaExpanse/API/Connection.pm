@@ -71,17 +71,12 @@ sub call {
         # Disable buffering
         my $ofh = select STDOUT;
         $| = 1;
-#        print '.';
+        print '.';
         select $ofh;
     }
     my $resp = $self->user_agent->request($req);
 
-#    print "response = [".$resp->as_string."]\n";
-
     my $res = $self->marshal->response_to_result($resp);
-
-#    $self->_set_total_calls($self->total_calls + 1);
-
 
     if ($res->error) {
         Carp::croak("RPC Error (" . $res->error->code . "): " . $res->error->message);

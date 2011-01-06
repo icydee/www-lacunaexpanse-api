@@ -1,17 +1,14 @@
 #!/home/icydee/localperl/bin/perl
 
-# Script to send out probes.
+# Script to send out probes. Used in conjunction with the send_excavators.pl script
 #
-# Send probes out to stars that have bodies that have never been visited by
-# excavators, or bodies not visited by excavators in the last 30 days.
+# Send probes out to random stars within a range of distances from a central
+# location (usually towards the centre of an empire).
 #
-# Send probes out to stars never visited in increasing order of distance.
+# Currently either you fill up the ship building queue manually or run a
+# different script to do it for you (still under development) to ensure that
+# there are enough probed stars ready to accept the excavators
 #
-# Destroy oldest probes once they have been visited by an excavator
-#
-# NOTE: The 'excavate.pl' script will ensure that there are enough probes produced
-#
-
 use Modern::Perl;
 use FindBin qw($Bin);
 use Data::Dumper;
@@ -29,7 +26,7 @@ use WWW::LacunaExpanse::API::DateTime;
 my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
 my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
 
-my $dsn = "dbi:SQLite:dbname=$Bin/".$excavate_config->{db_file};
+my $dsn = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
 
 my $schema = WWW::LacunaExpanse::Schema->connect($dsn);
 
@@ -43,7 +40,7 @@ my $my_empire   = $api->my_empire;
 my @colonies    = @{$my_empire->colonies};
 my ($colony)    = grep {$_->name eq $excavate_config->{probe_colony_name}} @colonies;
 
-print "Sending probes from my colony [".$colony->name."] ".$colony->x."/".$colony->y."\n";
+print "Sending probes from  '".$colony->name."' ".$colony->x."/".$colony->y."\n";
 
 my $centre_star = $api->find({ star => $excavate_config->{centre_star_name} }) || die "Cannot find star (".$excavate_config->{centre_star_name},")";
 
@@ -63,7 +60,6 @@ my $space_port  = $colony->space_port;
 #
 my $distance_count  = $schema->resultset('Distance')->search({from_id => $centre_star->id})->count;
 my $star_count      = $schema->resultset('Star')->search()->count;
-#print "Distance_count=$distance_count star_count=$star_count\n";
 
 if ($distance_count != $star_count) {
     # Re-initialise the distance table
@@ -81,44 +77,10 @@ if ($distance_count != $star_count) {
     }
 }
 
-####################################################################
-### Check all the probes currently registered by the observatory ###
-####################################################################
-
-# We may as well store the data for all the probes currently in the observatory
-# and for any probes sent out manually
-#
-
-#goto RESCAN;    # JUST FOR TEST PURPOSES
-#print "Observatory has probed: [".$observatory->count_probed_stars."] stars.\n";
-#
-#while (my $probed_star = $observatory->next_probed_star) {
-#    _save_probe_data($schema, $probed_star, 3);
-#}
-
-# To keep it simple, this script handles all probes sent from this observatory.
-# if you want to send out other probes, do so from another colony.
-
-# To further keep it simple, even if a probe has been sent to a star by another
-# colony or alliance member, we send another one anyway.
-
 # This script is intended to be run continuously. To stop it hit ctrl-c
 #
 RESCAN:
 while (1) {
-    ##########################################################
-    ### Delete probes where all bodies have been excavated ###
-    ##########################################################
-
-    my @stars = $schema->resultset('Star')->search({
-        status      => 4,
-    });
-
-    for my $star_db (@stars) {
-        $observatory->abandon_probe($star_db->id);
-        $star_db->status(5);
-        $star_db->update;
-    }
 
     ####################################################################################
     ### Send probes out to new stars                                                 ###
@@ -153,9 +115,10 @@ PROBE:
 
         $max_probes_to_send--;
     }
-
-    print "SENDING PROBES again in 60 minutes\n\n";
-    sleep(3600);
+    my $sleep = $excavate_config->{send_probes_sleep};
+    my $formatted_time = WWW::LacunaExpanse::API::DateTime->format_seconds($sleep);
+    print "SENDING PROBES again in $formatted_time\n\n";
+    sleep($sleep);
 
     $observatory->refresh;
     $space_port->refresh;
@@ -164,7 +127,9 @@ PROBE:
 
 # Get a new candidate star to probe
 #
-# Star must not have been excavated in the last 32 days
+# Currently we do not try to avoid stars with bodies excavated in
+# the last 30 days, but if you send out far enough the chances are
+# pretty slim. (It is a big universe out there!)
 #
 sub _next_star_to_probe {
     my ($schema, $space_port, $observatory) = @_;
@@ -176,6 +141,8 @@ sub _next_star_to_probe {
     my $distance = int(rand($excavate_config->{max_distance} - $excavate_config->{min_distance})) + $excavate_config->{min_distance};
     print "Probing a distance of $distance\n";
 
+    # Only send probes to stars previously unvisited or where the probe has been deleted
+    # you 'could' make this only stars that have never been visited without a problem
     my $distance_rs = $schema->resultset('Distance')->search_rs({
         from_id             => $centre_star->id,
         'to_star.status'    => [5, undef ],
@@ -201,70 +168,4 @@ DISTANCE:
     return ($star,$probe);
 }
 
-## Save probe data in database
-#
-#sub _save_probe_data {
-#    my ($schema, $probed_star, $status) = @_;
-#
-#    # See if we have previously probed this star
-#    my $db_star = $schema->resultset('Star')->find($probed_star->id);
-#
-#    if ($db_star->status == 1) {
-#        # Then the probe was sent by this script. Override any status
-#        $status = 3;
-#    }
-#
-#    if ($db_star->scan_date) {
-#        print "Previously scanned [".$db_star->name."]. Don't scan again\n";
-#        if ($db_star->status == 1) {
-#            $db_star->status($status);
-#            $db_star->update;
-#        }
-#    }
-#    else {
-#        print "Saving scanned data for [".$db_star->name."]\n";
-#        for my $body (@{$probed_star->bodies}) {
-#            my $db_body = $schema->resultset('Body')->find($body->id);
-#            if ( $db_body ) {
-#                # We already have the body data, just update the empire data
-#                $db_body->empire_id($body->empire ? $body->empire->id : undef);
-#                $db_body->update;
-#            }
-#            else {
-#                # We need to create it
-#                my $db_body = $schema->resultset('Body')->create({
-#                    id          => $body->id,
-#                    name        => $body->name,
-#                    x           => $body->x,
-#                    y           => $body->y,
-#                    image       => $body->image,
-#                    size        => $body->size,
-#                    type        => $body->type,
-#                    star_id     => $probed_star->id,
-#                    empire_id   => $body->empire ? $body->empire->id : undef,
-#                    water       => $body->water,
-#                });
-#                # Check the ores for this body
-#                my $body_ore = $body->ore;
-#                for my $ore_name (WWW::LacunaExpanse::API::Ores->ore_names) {
-#                    # we only store ore data if the quantity is greater than 1
-#                    if ($body_ore->$ore_name > 1) {
-#                        my $db_ore = $schema->resultset('LinkBodyOre')->create({
-#                            ore_id      => WWW::LacunaExpanse::API::Ores->ore_index($ore_name),
-#                            body_id     => $db_body->id,
-#                            quantity    => $body_ore->$ore_name,
-#                        });
-#                    }
-#                }
-#
-#            }
-#        }
-#        $db_star->scan_date(DateTime->now);
-#        $db_star->status($status);
-#        # If status is '3' then the probe is currently registered by our observatory
-#        # If the status is '2' then there is no probe, it was probably an alliance member
-#        $db_star->empire_id($status == 3 ? $api->my_empire->id : 0);
-#        $db_star->update;
-#    }
-#}
 1;

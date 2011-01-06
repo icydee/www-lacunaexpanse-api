@@ -1,13 +1,14 @@
-# lacuna sqlite database, relative to script directory
-db_file:            '../db/lacuna.db'
-
 # star name to act as centre location for distance calculations, usually your empire star
-centre_star_name:   'Lio Easphai'
+centre_star_name:   'Sol'
 
-# colony name to send out probes from
+# colony name to send probes out from
 probe_colony_name:  'colony 1'
 
-# colony name(s) to send out excavators from. Each must have level 15 Archaeology Ministries
+# time delay before checking to send out probes again (in seconds)
+send_probes_sleep:  3600
+
+# colony name(s) to send out excavators from. (You may send from any colony, but can only
+# build on a colony with a level 15 Archaeology ministry)
 excavator_colony_names:
     - 'colony 2'
     - 'colony 3'

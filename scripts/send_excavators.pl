@@ -2,8 +2,9 @@
 
 # Script to send out excavators to bodies
 #
-# Send out excavators to bodies that have a probe and which have not yet been
-# visited (or at least not in the last 30 days)
+# Work together with the send_probes.pl script to send excavators out to
+# bodies around stars with probes. Once all the bodies have been excavated
+# then the probe is abandoned making space for new probes.
 #
 
 use Modern::Perl;

@@ -1,6 +1,7 @@
 #!/home/icydee/localperl/bin/perl
 
-# Script to carry out genetics experiment
+# Script to carry out genetics experiment. Specify the
+# spies name and the affinity you want to try and graft in the genetics.yml file
 
 use Modern::Perl;
 use FindBin qw($Bin);
@@ -35,11 +36,6 @@ my $genetics_lab    = $colony->genetics_lab;
 
 # Look for spy specified in the config
 my ($graft) = grep {$_->spy->name eq $genetics_config->{spy_name}} @{$genetics_lab->grafts};
-
-#for my $graft (@{$genetics_lab->grafts}) {
-#    print "Graft from spy ".$graft->spy->name."\n";
-#    print "Graftable ".join('-', @{$graft->affinities})."\n";
-#}
 
 if ($graft) {
     my $spy = $graft->spy;

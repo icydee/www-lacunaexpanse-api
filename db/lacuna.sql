@@ -1,37 +1,13 @@
-create table star (
+--- Create the schema for the Lacuna Expanse API
+--- NOTE the 'star' table will need to be set up from the stars.csv file
+---
+CREATE TABLE api_hits (
     id          integer primary key autoincrement,
-    name        text,
-    x           integer not null,
-    y           integer not null,
-    color       text,
-    sector      text,
-    scan_date   text,
-    empire_id   integer,
-    status      integer
+    script      text,
+    on_date     text,
+    hits        integer
 );
---- scan_date
----    the date the scan was made.
----    null - the scan has not been made yet
---- status
----    1 - probe is travelling
----    2 - another colony or an alliance member sent the probe
----    3 - our probe is present at the star
----    4 - the probe can now be abandoned (all bodies have been excavated)
----    5 - we deleted the probe from the observatory
-
-create table distance (
-    id          integer primary key autoincrement,
-    from_id     integer,
-    to_id       integer,
-    distance    integer,
-    foreign key(from_id) references body(id),
-    foreign key(to_id) references star(id)
-);
-create index idx_distance__from_id on distance(from_id);
-create index idx_distance__to_id on distance(to_id);
-create index idx_distance__distance on distance(distance);
-
-create table body (
+CREATE TABLE body (
     id          integer primary key autoincrement,
     name        text,
     x           integer,
@@ -44,12 +20,35 @@ create table body (
     water       integer,
     foreign key(star_id) references star(id)
 );
-
-create table ore (
+CREATE TABLE distance (
+    id          integer primary key autoincrement,
+    from_id     integer,
+    to_id       integer,
+    distance    integer,
+    foreign key(from_id) references body(id),
+    foreign key(to_id) references body(id)
+);
+CREATE TABLE excavation (
+    id          integer primary key autoincrement,
+    body_id     integer,
+    on_date     text,
+    resource_genre  text,
+    resource_type   text,
+    resource_qty    integer,
+    foreign key(body_id) references body(id)
+);
+CREATE TABLE link_body__ore (
+    id          integer primary key autoincrement,
+    body_id     integer,
+    ore_id      integer,
+    quantity    integer,
+    foreign key(body_id) references body(id),
+    foreign key(ore_id) references ore(id)
+);
+CREATE TABLE ore (
     id          integer primary key autoincrement,
     name        text
 );
-
 insert into ore (id, name) values (1, 'anthracite');
 insert into ore (id, name) values (2, 'bauxite');
 insert into ore (id, name) values (3, 'beryl');
@@ -71,11 +70,27 @@ insert into ore (id, name) values (18, 'trona');
 insert into ore (id, name) values (19, 'uraninite');
 insert into ore (id, name) values (20, 'zircon');
 
-create table link_body__ore (
+CREATE TABLE star (
     id          integer primary key autoincrement,
-    body_id     integer,
-    ore_id      integer,
-    quantity    integer,
-    foreign key(body_id) references body(id),
-    foreign key(ore_id) references ore(id)
+    name        text,
+    x           integer not null,
+    y           integer not null,
+    color       text,
+    sector      text,
+    scan_date   text,
+    empire_id   integer,
+    status      integer
 );
+--- scan_date
+---    the date the probe scan was made
+---    null - the scan has not been made yet
+--- status
+---    1 - probe is travelling to this star
+---    2 - another colony or an alliance member sent the probe
+---    3 - our probe is present at the star
+---    4 - the probe can now be abandoned (all bodies have been excavated)
+---    5 - we deleted the probe from our observatory
+
+CREATE INDEX idx_distance__distance on distance(distance);
+CREATE INDEX idx_distance__from_id on distance(from_id);
+CREATE INDEX idx_distance__to_id on distance(to_id);

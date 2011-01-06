@@ -1,5 +1,11 @@
 #!/home/icydee/localperl/bin/perl
 
+# Script to do a one-off import of the lacuna star CSV file into your local
+# SQLite database
+#
+# Ensure you have copied my_account.yml.template to my_account.yml and set
+# up all the configuration items before you start
+#
 use Modern::Perl;
 
 use FindBin qw($Bin);
@@ -9,14 +15,14 @@ use Data::Dumper;
 
 use lib "$Bin/../lib";
 
-#
-# Run once script to import the Star CSV file into an empty database
-#
-
 main: {
     my $dbargs = {AutoCommit => 0, PrintError => 1};
 
-    my $dbh = DBI->connect("dbi:SQLite:dbname=$Bin/../db/lacuna.db","","",$dbargs);
+    my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
+
+    my $dsn = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
+
+    my $dbh = DBI->connect($dsn,"","",$dbargs);
 
     my ($stars) = $dbh->selectrow_array('select count(*) from star');
     if ($stars) {
@@ -34,15 +40,16 @@ main: {
             my $color   = $hash->{color};
             my $sector  = $hash->{sector};
 
-            print "ID [$id] name [$name] x [$x] y [$y] color [$color]\n";
+            print "ID [$id] name [$name] x [$x] y [$y] color [$color]\t\t\t\r";
             $dbh->do("insert into star (id,name,x,y,color,sector) values ($id,'$name',$x,$y,'$color','$sector')");
         }
     };
+    print "\n";
     if ($@) {
         warn "Transaction aborted - $@";
         eval { $dbh->rollback };
     }
     $dbh->commit();
     $dbh->disconnect();
-
 }
+1;
