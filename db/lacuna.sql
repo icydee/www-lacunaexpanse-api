@@ -9,6 +9,7 @@ CREATE TABLE api_hits (
 );
 CREATE TABLE body (
     id          integer primary key autoincrement,
+    orbit       integer,
     name        text,
     x           integer,
     y           integer,

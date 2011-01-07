@@ -1,2 +1,62 @@
 Client for http://www.lacunaexpanse.com/ written in Perl 5.10
 
+SETUP
+=====
+
+First you need to create your own configuration by copying from the
+template configuration files and making appropriate changes.
+
+$ cd ~/lacuna/
+$ cp myaccount.yml.template myaccount.yml
+$ vi myaccount.yml
+
+Follow the instructions in the myaccount.yml file setting up details
+of your account etc.
+
+You may also want to copy and edit the excavate.yml.template and
+genetics.yml.template files as well at this point.
+
+$ cp excavate.yml.template excavate.yml
+$ vi excavate.yml
+
+$ cp genetics.yml.template excavate.yml
+$ vi excavate.yml
+
+You will need to create an sqlite database and populate it with the data
+from the stars.csv file provided by Lacuna Expanse and included in this
+package. To do this follow these steps.
+
+$ cd ~/lacuna/
+$ cat db/lacuna.sql | sqlite3 db/lacuna.db
+
+You can if you wish check that the schema has been set up by manually
+running sqlite
+
+$ sqlite3 db/lacuna.db
+sqlite> .schema
+sqlite> .exit
+
+Now you will need to update the 'star' schema from the supplied csv file.
+
+$ cd ~/lacuna/
+$ perl scripts/import_csv.pl
+
+You should now have a complete database of the us1 server
+
+WHAT TO DO NEXT
+===============
+
+There are several scripts in the ./scripts directory which you can look at
+and even use.
+
+build_ships.pl              - build ships at dock-yards (needs further work)
+excavate_email.pl           - check your email for reports on your excavators
+                              puts stats on your excavators into the database
+genetics_experiment.pl      - carry out genetic experiments on spies
+glyph_summary.pl            - create a summary of all glyphs held on all colonies
+import_csv.pl               - as used above to import the star data
+redefine_species.pl         - redefine your species
+send_excavators.pl          - send excavators to probed star systems
+send_probes.pl              - send probes to unexplored star systems
+ship_summary.pl             - create a CSV file summary of all your ships
+

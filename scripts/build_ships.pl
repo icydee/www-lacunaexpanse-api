@@ -19,6 +19,9 @@ use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
 use WWW::LacunaExpanse::Agent::ShipBuilder;
 
+print "SORRY: This script does not work very well at the moment\n";
+exit;
+
 #### Configuration ####
 my $username                = 'icydee';
 my $password                = 'secret';

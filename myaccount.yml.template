@@ -1,0 +1,7 @@
+# Lacuna server, username and password
+uri:        'https://us1.lacunaexpanse.com'
+username:   'my_empire_name'
+password:   'my_secret_password'
+
+# lacuna sqlite database, relative to script directory
+db_file:            '../db/lacuna.db'

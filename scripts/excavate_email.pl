@@ -3,10 +3,11 @@
 # Script to read the emails and process the responses for
 # excavators
 #
-# NOTE:
+# Emails relating to the returns made from excavators are processed and the
+# type of return (nothing/resource/glyph/plan) is put in the database for
+# future study.
 #
-# This script can be quite expensive on requests so it is probably best to only
-# run it one or two times a day.
+# The read email is then put into the Archive folder.
 #
 
 use Modern::Perl;
@@ -23,10 +24,9 @@ use WWW::LacunaExpanse::API::DateTime;
 
 # Load configurations
 
-my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
-my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
+my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
 
-my $dsn = "dbi:SQLite:dbname=$Bin/".$excavate_config->{db_file};
+my $dsn = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
 
 my $schema = WWW::LacunaExpanse::Schema->connect($dsn);
 

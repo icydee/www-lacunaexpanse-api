@@ -10,6 +10,7 @@ use Modern::Perl;
 
 use FindBin qw($Bin);
 use DBI;
+use YAML::Any;
 use Text::CSV::Slurp;
 use Data::Dumper;
 
@@ -18,7 +19,7 @@ use lib "$Bin/../lib";
 main: {
     my $dbargs = {AutoCommit => 0, PrintError => 1};
 
-    my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
+    my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
 
     my $dsn = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
 
@@ -29,6 +30,7 @@ main: {
         die "CSV file has already been imported. To re-import first re-initialise the database\n";
     }
 
+    print "Slurping CSV file\n";
     my $data = Text::CSV::Slurp->load(file => "$Bin/../db/lacuna.csv");
 
     eval {
@@ -40,7 +42,7 @@ main: {
             my $color   = $hash->{color};
             my $sector  = $hash->{sector};
 
-            print "ID [$id] name [$name] x [$x] y [$y] color [$color]\t\t\t\r";
+            print "ID [$id] name [$name] x [$x] y [$y] color [$color]\n";
             $dbh->do("insert into star (id,name,x,y,color,sector) values ($id,'$name',$x,$y,'$color','$sector')");
         }
     };

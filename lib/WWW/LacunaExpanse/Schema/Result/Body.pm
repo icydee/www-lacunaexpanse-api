@@ -14,6 +14,12 @@ __PACKAGE__->add_columns(
         is_nullable     => 0,
         size            => 10,
     },
+    orbit => {
+        data_type       => "INT",
+        default_value   => undef,
+        is_nullable     => 0,
+        size            => 10,
+    },
     name => {
         data_type       => "TEXT",
         default_value   => "",

@@ -21,10 +21,10 @@ use WWW::LacunaExpanse::API::DateTime;
 
 # Load configurations
 
-my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
-my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
+my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
+my $excavate_config = YAML::Any::LoadFile("$Bin/../excavate.yml");
 
-my $dsn = "dbi:SQLite:dbname=$Bin/".$excavate_config->{db_file};
+my $dsn = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
 
 my $schema = WWW::LacunaExpanse::Schema->connect($dsn);
 
@@ -76,7 +76,7 @@ COLONY:
 
             $space_port->refresh;
 
-            @excavators = $space_port->all_ships('excavator','Docked');
+            @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
             print "Colony ".$colony->name." has ".scalar(@excavators)." docked excavators\n";
             next COLONY unless @excavators;
 
@@ -112,10 +112,10 @@ EXCAVATOR:
                 }
 
                 # Get all excavators that can be sent to this planet
-                my @excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $db_body->id })};
+                my @send_excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $db_body->id })}; #<<<1>>>#
 
-                if ( ! @excavators ) {
-                    @excavators = $space_port->all_ships('excavator','Docked');
+                if ( ! @send_excavators ) {
+#                    @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
 
                     if ( ! @excavators) {
                         # No more excavators at this colony
@@ -129,16 +129,18 @@ EXCAVATOR:
 
                 my $distance = int(sqrt(($db_body->x - $colony->x)**2 + ($db_body->y - $colony->y)**2));
                 print "Sending Excavator to '".$db_body->name."' a distance of $distance\n";
-                my $first_excavator = $excavators[0];
-                $space_port->send_ship($first_excavator->id, {body_id => $db_body->id});
+                my $first_excavator = $send_excavators[0];
+                $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
                 @excavators = grep {$_->id != $first_excavator->id} @excavators;
-                $space_port->refresh;
+#                $space_port->refresh; #<<<2>>>#
                 $db_body = $db_body_rs->next;
             }
         }
     }
-    print "SENDING EXCAVATORS again in 60 minutes\n\n";
-    sleep(60 * 60);
+    my $sleep = $excavate_config->{send_excavator_sleep};
+    my $formatted_time = WWW::LacunaExpanse::API::DateTime->format_seconds($sleep);
+    print "SENDING PROBES again in $formatted_time\n\n";
+    sleep($sleep);
 }
 
 # Save probe data in database
@@ -169,6 +171,7 @@ sub _save_probe_data {
                 # We need to create it
                 my $db_body = $schema->resultset('Body')->create({
                     id          => $body->id,
+                    orbit       => $body->orbit,
                     name        => $body->name,
                     x           => $body->x,
                     y           => $body->y,

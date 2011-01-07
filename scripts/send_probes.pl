@@ -23,8 +23,8 @@ use WWW::LacunaExpanse::API::DateTime;
 
 # Load configurations
 
-my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
-my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
+my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
+my $excavate_config = YAML::Any::LoadFile("$Bin/../excavate.yml");
 
 my $dsn = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
 
