@@ -37,6 +37,8 @@ sub refresh {
     $self->get_glyphs;
 }
 
+# Get all glyphs as a list reference.
+#
 sub get_glyphs {
     my ($self) = @_;
 
@@ -59,6 +61,22 @@ sub get_glyphs {
         push @glyphs, $glyph;
     }
     $self->_glyphs(\@glyphs);
+}
+
+# Get all glyphs as a summary
+#
+#   e.g. {anthracite => 2, bauxite => 1}
+#
+sub get_glyph_summary {
+    my ($self) = @_;
+
+    my $glyph_count;
+
+    for my $glyph (@{$self->glyphs}) {
+        my $glyph_type = $glyph->type;
+        $glyph_count->{$glyph_type}  = $glyph_count->{$glyph_type} ? $glyph_count->{$glyph_type}  + 1 : 1;
+    }
+    return $glyph_count;
 }
 
 no Moose;

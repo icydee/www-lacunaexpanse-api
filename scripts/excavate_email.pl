@@ -60,6 +60,7 @@ while (my $message = $inbox->next_message) {
         if (defined $excavator_messages->{$message->subject}) {
             print $message->date." ".$message->subject."\n";
             $excavator_messages->{$message->subject}++;
+#            print $message->body."\n";
 
             my ($starmap) = $message->body
                 =~ m/\{(Starmap.*)\}/;
@@ -93,12 +94,13 @@ while (my $message = $inbox->next_message) {
                 }
             }
 
-            if (! $body_db) {
-                # Failed to find the body ID (perhaps the body has since been renamed)
-            }
-            elsif ($planet && ! $starmap) {
+            if ($planet && ! $starmap) {
                 # Found by the archaeology ministry itself
                 push @archive_messages, $message->id;
+            }
+            elsif (! $body_db) {
+                # Failed to find the body ID (perhaps the body has since been renamed)
+                print "WARNING: failed to find the body, perhaps it was renamed\n";
             }
             elsif (! $resource && ! $glyph && ! $plan) {
                 # Found nothing
@@ -144,16 +146,13 @@ while (my $message = $inbox->next_message) {
                 });
                 push @archive_messages, $message->id;
             }
-#            print "Starmap [$starmap] planet [$planet] quantity [$quantity] resource [$resource] glyph [$glyph] plan [$plan]\n";
+            print "Starmap [$starmap] planet [$planet] quantity [$quantity] resource [$resource] glyph [$glyph] plan [$plan]\n";
         }
         else {
             print $message->date." ??? ".$message->subject."\n";
 #               push @archive_messages, $message->id;
         }
     }
-#    else {
-#        print $message->date." >>> ".$message->subject."\n";
-#    }
 }
 
 $inbox->archive_messages(\@archive_messages);

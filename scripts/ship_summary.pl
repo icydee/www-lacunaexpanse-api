@@ -17,12 +17,7 @@ use WWW::LacunaExpanse::Agent::ShipBuilder;
 
 # Load configurations
 
-my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
-my $excavate_config = YAML::Any::LoadFile("$Bin/excavate.yml");
-
-my $dsn = "dbi:SQLite:dbname=$Bin/".$excavate_config->{db_file};
-
-my $schema = WWW::LacunaExpanse::Schema->connect($dsn);
+my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
 
 my $api = WWW::LacunaExpanse::API->new({
     uri         => $my_account->{uri},
@@ -31,38 +26,54 @@ my $api = WWW::LacunaExpanse::API->new({
 });
 
 my $colonies = $api->my_empire->colonies;
-my @ships;
+
+my $ship_types;                         # Hash of all ship types we own
+
+my $colony_has;                         # Hash of colony/ship-types
 
 COLONY:
 for my $colony (sort {$a->name cmp $b->name} @$colonies) {
-    print $colony->name." at ".$colony->x."/".$colony->y."\n";
+    print "Colony: ".$colony->name." at ".$colony->x."/".$colony->y."\n";
 
     my $space_port = $colony->space_port;
     next COLONY if ! $space_port;
 
+    $colony_has->{$colony->name}{space_port} = $space_port;
+
     for my $ship ($space_port->all_ships) {
-        push @ships, {ship => $ship, colony => $colony};
+        my $ship_type = $ship->type;
+        $ship_types->{$ship_type} = 1;
+
+        $colony_has->{$colony->name}{$ship_type} =
+            defined $colony_has->{$colony->name}{$ship_type}
+            ? $colony_has->{$colony->name}{$ship_type} + 1
+            : 1
+            ;
     }
 }
 
-# create summary
-print "COLONY,TYPE,NAME,TASK,SIZE,SPEED,STEALTH,COMBAT,MAX_OCCUPANTS,AVAILABLE,STARTED,ARRIVES,TRAVEL_TIME\n";
-for my $ship (sort {$a->{ship}->type.'#'.$a->{ship}->task cmp $b->{ship}->type.'#'.$b->{ship}->task} @ships) {
-    print '"'.join('","', $ship->{colony}->name,
-        $ship->{ship}->type,
-        $ship->{ship}->name,
-        $ship->{ship}->task,
-        $ship->{ship}->hold_size,
-        $ship->{ship}->speed,
-        $ship->{ship}->stealth,
-        $ship->{ship}->combat,
-        $ship->{ship}->max_occupants,
-        $ship->{ship}->date_available,
-        $ship->{ship}->date_started,
-        $ship->{ship}->date_arrives,
-    )."\"\n";
-}
+#print Dumper(\$colony_has);
 
+my $title = join (',', map {uc($_)} sort keys %$ship_types);
+print "COLONY,DOCKS,AVAILABLE,$title\n";
+
+
+for my $colony_name (sort keys %$colony_has) {
+    my ($colony) = grep {$_->name eq $colony_name} @$colonies;
+    my $space_port = $colony_has->{$colony_name}{space_port};
+
+    my $str = '';
+    $str .= join(',', $colony->name, $space_port->max_ships, $space_port->docks_available);
+    $str .= ',';
+SHIP_TYPE:
+    for my $ship_type (sort keys %{$ship_types}) {
+        my $qty = $colony_has->{$colony_name}{$ship_type};
+        $qty = 0 if ! $qty;
+        $str .= "$qty,";
+    }
+    chop($str);
+    print "$str\n";
+}
 
 exit;
 

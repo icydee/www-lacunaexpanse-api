@@ -98,6 +98,21 @@ sub all_ships {
     return @ships;
 }
 
+# Return all ships by type
+#
+# e.g. {excavator => \@excavators, fighter => \@fighters}
+#
+sub all_ships_by_type {
+    my ($self) = @_;
+
+    my $type_ref;
+    for my $ship ($self->all_ships) {
+        my $type = $ship->type;
+        push @{$type_ref->{$type}}, $ship;
+    }
+    return $type_ref;
+}
+
 
 # Return the total number of ships
 #

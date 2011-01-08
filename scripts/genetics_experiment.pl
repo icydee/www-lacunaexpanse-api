@@ -16,8 +16,8 @@ use WWW::LacunaExpanse::Schema;
 
 # Load configurations
 
-my $my_account      = YAML::Any::LoadFile("$Bin/myaccount.yml");
-my $genetics_config = YAML::Any::LoadFile("$Bin/genetics.yml");
+my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
+my $genetics_config = YAML::Any::LoadFile("$Bin/../genetics.yml");
 
 my $api = WWW::LacunaExpanse::API->new({
     uri         => $my_account->{uri},
@@ -31,8 +31,6 @@ my ($colony)        = @{$my_empire->find_colony($genetics_config->{colony})};
 print "Genetics lab is on colony ".$colony->name."\n";
 
 my $genetics_lab    = $colony->genetics_lab;
-
-#print $genetics_lab;
 
 # Look for spy specified in the config
 my ($graft) = grep {$_->spy->name eq $genetics_config->{spy_name}} @{$genetics_lab->grafts};

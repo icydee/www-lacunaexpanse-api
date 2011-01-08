@@ -71,7 +71,7 @@ sub call {
         # Disable buffering
         my $ofh = select STDOUT;
         $| = 1;
-#        print '.';
+        print '.';
         select $ofh;
     }
     my $resp = $self->user_agent->request($req);

@@ -33,14 +33,17 @@ for my $colony (sort {$a->name cmp $b->name} @$colonies) {
     print "Colony ".$colony->name." at ".$colony->x."/".$colony->y."\n";
     my ($archaeology) = @{$colony->building_type('Archaeology Ministry')};
 
-    my $colony_glyph_count;
     if ($archaeology ) {
-        my @glyphs = @{$archaeology->glyphs};
-        for my $glyph (@glyphs) {
-            my $glyph_type = $glyph->type;
-            $total_glyph_count->{$glyph_type}  = $total_glyph_count->{$glyph_type}  ? $total_glyph_count->{$glyph_type}  + 1 : 1;
-            $colony_glyph_count->{$glyph_type} = $colony_glyph_count->{$glyph_type} ? $colony_glyph_count->{$glyph_type} + 1 : 1;
+        my $colony_glyph_count = $archaeology->get_glyph_summary;
+
+        for my $glyph_type (keys %$colony_glyph_count) {
+            if (! $total_glyph_count->{$glyph_type} ) {
+                # initialise it
+                $total_glyph_count->{$glyph_type} = 0;
+            }
+            $total_glyph_count->{$glyph_type} += $colony_glyph_count->{$glyph_type};
         }
+
         for my $glyph_type (sort keys %$colony_glyph_count) {
             print "  ".$colony_glyph_count->{$glyph_type}."\t".$glyph_type."\n";
         }
