@@ -37,6 +37,18 @@ sub refresh {
     $self->get_glyphs;
 }
 
+sub assemble_glyphs {
+    my ($self, $ids) = @_;
+
+    my $result = $self->connection->call(
+	$self->url,
+	'assemble_glyphs',
+	[$self->connection->session_id, $self->id, $ids]
+    );
+
+    return $result->{item_name};
+}
+
 sub get_glyphs {
     my ($self) = @_;
 
@@ -60,6 +72,46 @@ sub get_glyphs {
     }
     $self->_glyphs(\@glyphs);
 }
+
+
+sub search_for_glyph {
+    my ($self, $ore_type) = @_;
+
+    my $result = $self->connection->call(
+	$self->url,
+	'search_for_glyph',
+	[$self->connection->session_id, $self->id, $ore_type]
+    );
+
+    return $result->{building};
+}
+
+sub get_ores_available_for_processing {
+    my ($self) = @_;
+
+    my $result = $self->connection->call(
+	$self->url,
+	'get_ores_available_for_processing',
+	[$self->connection->session_id, $self->id]
+    );
+
+    return $result->{ore};
+}
+
+sub subsidize_search {
+    my ($self) = @_;
+
+    my $result = $self->connection->call(
+	$self->url,
+	'subsidize_search',
+	[$self->connection->session_id, $self->id]
+    );
+
+    return $result->{building};
+}
+
+
+
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
