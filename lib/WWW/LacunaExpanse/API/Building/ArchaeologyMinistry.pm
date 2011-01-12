@@ -80,20 +80,21 @@ sub assemble_glyphs {
 #
 sub get_glyph_summary {
     my ($self) = @_;
+    my $glyph_count;
 
     for my $glyph (@{$self->glyphs}) {
         my $glyph_type = $glyph->type;
         $glyph_count->{$glyph_type}  = $glyph_count->{$glyph_type} ? $glyph_count->{$glyph_type}  + 1 : 1;
     }
     return $glyph_count;
+}
 
 # Search for a particular glyph type
 #
 sub search_for_glyph {
     my ($self, $ore_type) = @_;
 
-    my $result = $self->connection->call(
-	$self->url, 'search_for_glyph',[
+    my $result = $self->connection->call($self->url, 'search_for_glyph',[
 	    $self->connection->session_id, $self->id, $ore_type
     ]);
 
@@ -103,10 +104,9 @@ sub search_for_glyph {
 # Get all ores available for processing
 #
 sub get_ores_available_for_processing {
-    my $glyph_count;
+    my ($self) = @_;
 
-    my $result = $self->connection->call(
-	$self->url, 'get_ores_available_for_processing', [
+    my $result = $self->connection->call($self->url, 'get_ores_available_for_processing', [
 	    $self->connection->session_id, $self->id
     ]);
 
