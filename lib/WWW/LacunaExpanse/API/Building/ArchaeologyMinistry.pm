@@ -28,9 +28,6 @@ for my $attr (@simple_strings, @other_strings) {
 
 # Refresh the object from the Server
 #
-
-# Refresh the object from the Server
-#
 sub refresh {
     my ($self) = @_;
 
@@ -63,6 +60,20 @@ sub get_glyphs {
     $self->_glyphs(\@glyphs);
 }
 
+# Assemble glyphs
+#
+sub assemble_glyphs {
+    my ($self, $ids) = @_;
+
+    my $result = $self->connection->call(
+	$self->url, 'assemble_glyphs', [
+	    $self->connection->session_id, $self->id, $ids
+	]);
+
+    return $result->{item_name};
+}
+
+
 # Get all glyphs as a summary
 #
 #   e.g. {anthracite => 2, bauxite => 1}
@@ -70,13 +81,48 @@ sub get_glyphs {
 sub get_glyph_summary {
     my ($self) = @_;
 
-    my $glyph_count;
-
     for my $glyph (@{$self->glyphs}) {
         my $glyph_type = $glyph->type;
         $glyph_count->{$glyph_type}  = $glyph_count->{$glyph_type} ? $glyph_count->{$glyph_type}  + 1 : 1;
     }
     return $glyph_count;
+
+# Search for a particular glyph type
+#
+sub search_for_glyph {
+    my ($self, $ore_type) = @_;
+
+    my $result = $self->connection->call(
+	$self->url, 'search_for_glyph',[
+	    $self->connection->session_id, $self->id, $ore_type
+    ]);
+
+    return $result->{building};
+}
+
+# Get all ores available for processing
+#
+sub get_ores_available_for_processing {
+    my $glyph_count;
+
+    my $result = $self->connection->call(
+	$self->url, 'get_ores_available_for_processing', [
+	    $self->connection->session_id, $self->id
+    ]);
+
+    return $result->;{ore};
+}
+
+# Subsidize a search with essentia
+#
+sub subsidize_search {
+    my ($self) = @_;
+
+    my $result = $self->connection->call($self->url, 'subsidize_search', [
+        $self->connection->session_id, $self->id
+    ]);
+
+    return $result->{building};
 }
 
 no Moose;
