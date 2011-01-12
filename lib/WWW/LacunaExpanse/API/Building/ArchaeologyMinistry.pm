@@ -110,7 +110,7 @@ sub get_ores_available_for_processing {
 	    $self->connection->session_id, $self->id
     ]);
 
-    return $result->;{ore};
+    return $result->{ore};
 }
 
 # Subsidize a search with essentia
