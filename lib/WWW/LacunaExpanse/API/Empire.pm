@@ -27,34 +27,34 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
     );
 }
 
-# Stringify
-use overload '""' => sub {
-    my $empire = $_[0];
-    my $str = "Empire\n";
-    $str .= "  ID               : ".$empire->id."\n";
-    $str .= "  name             : ".$empire->name."\n";
-    $str .= "  description      : ".$empire->description."\n";
-    $str .= "  city             : ".$empire->city."\n";
-    $str .= "  country          : ".$empire->country."\n";
-    $str .= "  colony_count     : ".$empire->colony_count."\n";
-    $str .= "  player_name      : ".$empire->player_name."\n";
-    $str .= "  skype            : ".$empire->skype."\n";
-    $str .= "  species          : ".$empire->species."\n";
-    $str .= "  status message   : ".$empire->status_message."\n";
-    $str .= "  date founded     : ".$empire->date_founded."\n";
-    $str .= "  last login       : ".$empire->last_login."\n";
-    if ($empire->alliance) {
-        $str .= "  alliance         : ".$empire->alliance->name."\n";
-    }
-    for my $colony (@{$empire->known_colonies}) {
-        $str .= $colony;
-    }
-#    for my $medal (@{$empire->medals}) {
-#        $str .= $medal;
+## Stringify
+#use overload '""' => sub {
+#    my $empire = $_[0];
+#    my $str = "Empire\n";
+#    $str .= "  ID               : ".$empire->id."\n";
+#    $str .= "  name             : ".$empire->name."\n";
+#    $str .= "  description      : ".$empire->description."\n";
+#    $str .= "  city             : ".$empire->city."\n";
+#    $str .= "  country          : ".$empire->country."\n";
+#    $str .= "  colony_count     : ".$empire->colony_count."\n";
+#    $str .= "  player_name      : ".$empire->player_name."\n";
+#    $str .= "  skype            : ".$empire->skype."\n";
+#    $str .= "  species          : ".$empire->species."\n";
+#    $str .= "  status message   : ".$empire->status_message."\n";
+#    $str .= "  date founded     : ".$empire->date_founded."\n";
+#    $str .= "  last login       : ".$empire->last_login."\n";
+#    if ($empire->alliance) {
+#        $str .= "  alliance         : ".$empire->alliance->name."\n";
 #    }
-
-    return $str;
-};
+#    for my $colony (@{$empire->known_colonies}) {
+#        $str .= $colony;
+#    }
+##    for my $medal (@{$empire->medals}) {
+##        $str .= $medal;
+##    }
+#
+#    return $str;
+#};
 
 # Refresh the object from the Server
 #

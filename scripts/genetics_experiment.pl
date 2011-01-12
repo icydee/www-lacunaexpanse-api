@@ -33,7 +33,9 @@ print "Genetics lab is on colony ".$colony->name."\n";
 my $genetics_lab    = $colony->genetics_lab;
 
 # Look for spy specified in the config
-my ($graft) = grep {$_->spy->name eq $genetics_config->{spy_name}} @{$genetics_lab->grafts};
+my @grafts = @{$genetics_lab->grafts};
+
+my ($graft) = grep {$_->spy->name eq $genetics_config->{spy_name}} @grafts;
 
 if ($graft) {
     my $spy = $graft->spy;

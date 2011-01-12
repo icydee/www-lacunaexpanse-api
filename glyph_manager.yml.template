@@ -1,0 +1,5 @@
+# Template file for glyph_manager.pl. Copy this to glyph_manager.yml and make changes
+#
+# Number of excavators to have in the empire at any time
+excavator_count:    210
+

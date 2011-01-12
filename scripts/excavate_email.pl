@@ -146,11 +146,11 @@ while (my $message = $inbox->next_message) {
                 });
                 push @archive_messages, $message->id;
             }
-            print "Starmap [$starmap] planet [$planet] quantity [$quantity] resource [$resource] glyph [$glyph] plan [$plan]\n";
+#            print "Starmap [$starmap] planet [$planet] quantity [$quantity] resource [$resource] glyph [$glyph] plan [$plan]\n";
         }
         else {
             print $message->date." ??? ".$message->subject."\n";
-#               push @archive_messages, $message->id;
+               push @archive_messages, $message->id;
         }
     }
 }

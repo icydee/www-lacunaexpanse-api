@@ -22,6 +22,7 @@ has 'user_agent'    => (is => 'ro', lazy_build => 1);
 has 'marshal'       => (is => 'ro', lazy_build => 1);
 has 'session_id'    => (is => 'rw');
 has 'debug'         => (is => 'rw', default => 0);
+has 'debug_hits'    => (is => 'rw', default => 0);
 
 my $public_key      = 'c200634c-7feb-4001-8d70-d48eb3ff532c';
 
@@ -67,7 +68,7 @@ sub call {
         print "request = [".$req->as_string."]\n";
         print "#######################################\n\n";
     }
-    {
+    if ($self->debug_hits) {
         # Disable buffering
         my $ofh = select STDOUT;
         $| = 1;

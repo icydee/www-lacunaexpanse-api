@@ -65,7 +65,7 @@ sub get_buildable {
     # other strings
     my @ships;
     for my $ship_type (keys %{$body->{buildable}}) {
-        my $ship_hash = $body->{buildabl}{$ship_type};
+        my $ship_hash = $body->{buildable}{$ship_type};
 
         my $cost_hash = $ship_hash->{cost};
         my $cost = WWW::LacunaExpanse::API::Cost->new({
@@ -84,10 +84,11 @@ sub get_buildable {
             stealth     => 0,
             cost        => $cost,
             type_human  => $ship_hash->{type_human},
-            can         => $ship_hash->{can},
-            reason_code => $ship_hash->{can} ? $ship_hash->{reason}[0] : '',
-            reason_text => $ship_hash->{can} ? $ship_hash->{reason}[1] : '',
+            can_build   => $ship_hash->{can},
+            reason_code => $ship_hash->{can} == 0 ? $ship_hash->{reason}[0] : '',
+            reason_text => $ship_hash->{can} == 0 ? $ship_hash->{reason}[1] : '',
         });
+
         push @ships, $virtual_ship;
     }
     $self->_buildable(\@ships);

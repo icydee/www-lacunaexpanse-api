@@ -10,6 +10,7 @@ with 'WWW::LacunaExpanse::API::Role::Connection';
 has 'id'                => (is => 'ro', required => 1);
 has 'body_id'           => (is => 'ro', required => 1);
 has 'url'               => (is => 'ro', required => 1);
+has 'colony'            => (is => 'ro', required => 1);
 
 my @simple_strings  = qw(name x y image level efficiency food_hour food_capacity energy_hour
     energy_capacity ore_hour ore_capacity water_hour water_capacity waste_hour waste_capacity
@@ -36,7 +37,7 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
 sub update {
     my ($self) = @_;
 
-#print "### calling generic update ###\n";
+print "### calling generic update ###\n";
 
     $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'view',[$self->connection->session_id, $self->id]);

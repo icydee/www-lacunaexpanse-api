@@ -138,7 +138,15 @@ sub _next_star_to_probe {
 
     # Locate a star at a random distance
 
-    my $distance = int(rand($excavate_config->{max_distance} - $excavate_config->{min_distance})) + $excavate_config->{min_distance};
+    my $max_distance = $excavate_config->{max_distance};
+    my $min_distance = $excavate_config->{min_distance};
+    if ($excavate_config->{ultra_chance} && int(rand($excavate_config->{ultra_chance})) == 0 ) {
+        $max_distance = $excavate_config->{ultra_max};
+        $min_distance = $excavate_config->{ultra_min};
+    }
+
+    my $distance = int(rand($max_distance - $min_distance)) + $min_distance;
+
     print "Probing a distance of $distance\n";
 
     # Only send probes to stars previously unvisited or where the probe has been deleted

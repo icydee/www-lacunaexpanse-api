@@ -88,7 +88,7 @@ SHIP_TYPE:
                 # Check if we can build this ship type
                 my $buildable = $self->shipyard->ship_build_status($type);
 #                print Dumper($buildable);
-                if ($buildable->can eq 'BUILD') {
+                if ($buildable->can_build) {
                     # Build this ship type
                     $self->shipyard->build_ship($type);
                     $self->shipyard->refresh;

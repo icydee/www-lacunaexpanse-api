@@ -99,6 +99,7 @@ sub _build_buildings {
                     efficiency      => $hash->{efficiency},
                     pending_build   => $pending_build,
                     work            => $work,
+                    colony          => $self,
                 }
             );
             push @buildings, $building;

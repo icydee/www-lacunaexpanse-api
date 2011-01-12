@@ -36,6 +36,7 @@ use WWW::LacunaExpanse::API::Building::ArchaeologyMinistry;
 has 'uri'           => (is => 'ro', required => 1);
 has 'username'      => (is => 'rw', required => 0);
 has 'password'      => (is => 'rw', required => 0);
+has 'debug_hits'    => (is => 'rw', default => 0);
 has 'my_empire'     => (is => 'ro', lazy_build => 1);
 has 'inbox'         => (is => 'ro', lazy_build => 1);
 has 'connection'    => (is => 'ro', lazy_build => 1);
@@ -50,6 +51,7 @@ sub BUILD {
         uri         => $self->uri,
         username    => $self->username,
         password    => $self->password,
+        debug_hits  => $self->debug_hits,
     });
 }
 

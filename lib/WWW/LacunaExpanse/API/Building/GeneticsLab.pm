@@ -45,7 +45,7 @@ use overload '""' => sub {
 sub prepare_experiment {
     my ($self) = @_;
 
-    $self->connection->debug(0);
+    $self->connection->debug(1);
     my $result = $self->connection->call($self->url, 'prepare_experiment',[
         $self->connection->session_id, $self->id]);
     $self->connection->debug(0);

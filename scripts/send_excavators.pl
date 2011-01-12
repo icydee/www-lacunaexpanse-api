@@ -139,7 +139,7 @@ EXCAVATOR:
     }
     my $sleep = $excavate_config->{send_excavator_sleep};
     my $formatted_time = WWW::LacunaExpanse::API::DateTime->format_seconds($sleep);
-    print "SENDING PROBES again in $formatted_time\n\n";
+    print "SENDING EXCAVATORS again in $formatted_time\n\n";
     sleep($sleep);
 }
 

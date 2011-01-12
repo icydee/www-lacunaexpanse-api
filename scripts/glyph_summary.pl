@@ -55,7 +55,7 @@ for my $colony (sort {$a->name cmp $b->name} @$colonies) {
 
 print "\nTOTAL GLYPHS\n";
 my $grand_total = 0;
-for my $glyph_type (sort keys %$total_glyph_count) {
+for my $glyph_type (sort {$total_glyph_count->{$a} <=> $total_glyph_count->{$b}} keys %$total_glyph_count) {
     print "  ".$total_glyph_count->{$glyph_type}."\t".$glyph_type."\n";
     $grand_total += $total_glyph_count->{$glyph_type};
 }

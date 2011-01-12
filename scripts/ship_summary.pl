@@ -23,6 +23,7 @@ my $api = WWW::LacunaExpanse::API->new({
     uri         => $my_account->{uri},
     username    => $my_account->{username},
     password    => $my_account->{password},
+    debug_hits  => $my_account->{debug_hits},
 });
 
 my $colonies = $api->my_empire->colonies;

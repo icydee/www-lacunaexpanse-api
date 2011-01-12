@@ -14,7 +14,7 @@ has 'stealth'           => (is => 'rw');
 has 'combat'            => (is => 'rw');
 has 'cost'              => (is => 'rw');
 has 'type_human'        => (is => 'rw');
-has 'can'               => (is => 'rw');
+has 'can_build'         => (is => 'rw');
 has 'reason_code'       => (is => 'rw');
 has 'reason_text'       => (is => 'rw');
 has 'date_completed'    => (is => 'rw');
