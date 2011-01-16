@@ -48,84 +48,303 @@ use WWW::LacunaExpanse::Agent::ShipBuilder;
 
 # Load configurations
 
-my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
-my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyph_manager.yml");
+MAIN: {
+    my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
+    my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyph_manager.yml");
 
-my $api = WWW::LacunaExpanse::API->new({
-    uri         => $my_account->{uri},
-    username    => $my_account->{username},
-    password    => $my_account->{password},
-    debug_hits  => $my_account->{debug_hits},
-});
+    my $api = WWW::LacunaExpanse::API->new({
+        uri         => $my_account->{uri},
+        username    => $my_account->{username},
+        password    => $my_account->{password},
+        debug_hits  => $my_account->{debug_hits},
+    });
 
-print "Getting colonies\n";
-my $colonies = $api->my_empire->colonies;
+    print "Getting colonies\n";
+    my $colonies = $api->my_empire->colonies;
 
-my @colony_data;
-my $total_excavators = 0;
-my @all_ship_yards;
-my @all_space_ports;
-my @all_archaeology;
+    my @colony_data;
+    my $total_excavators = 0;
+    my @all_ship_yards;
+    my @all_space_ports;
+    my @all_archaeology;
 
-# Get the buildings for each colony.
-COLONY:
-for my $colony (sort {$a->name cmp $b->name} @$colonies) {
+    # Try to gather as much information about the empire that we need
+    # up-front in order to not repeat this in the various sections later.
+    #
+    COLONY:
+    for my $colony (sort {$a->name cmp $b->name} @$colonies) {
 
-    print "COLONY ".$colony->name."\n";
-    print "Getting space port\n";
-    my $space_port = $colony->space_port;
-    if ( ! $space_port ) {
-        print "Has no space port!\n";
-        next COLONY;
+        print "COLONY ".$colony->name."\n";
+
+        print "Getting space port\n";
+        my $space_port = $colony->space_port;
+        if ( ! $space_port ) {
+            print "Has no space port!\n";
+            next COLONY;
+        }
+        print "Getting ship yards\n";
+        my $ship_yards = $colony->building_type('Shipyard');
+        print "Getting archaeology ministry\n";
+        my $archaeology = $colony->archaeology;
+
+        push @all_ship_yards, @$ship_yards;
+        push @all_space_ports, $space_port;
+        push @all_archaeology, $archaeology;
+
+        my $colony_glyph_summary = {};
+
+        if ($archaeology) {
+            # Get all the glyphs held on this colony
+            $colony_glyph_summary = $archaeology->get_glyph_summary;
+        }
+
+        # Get all the ships held on this colony by type
+        my $ships_by_type = $space_port->all_ships_by_type;
+
+        my $colony_excavators;
+        if ($ships_by_type->{excavator}) {
+            $colony_excavators = $ships_by_type->{excavator};
+            print "there are ".scalar @$colony_excavators." excavators on ".$colony->name."\n";
+            $total_excavators += scalar @$colony_excavators;
+        }
+        else {
+            print "there are no excavators on ".$colony->name."\n";
+        }
+        my $colony_datum = {
+            colony      => $colony,
+            space_port  => $space_port,
+            ship_yards  => $ship_yards,
+            archaeology => $archaeology,
+            glyphs      => $colony_glyph_summary,
+            ships       => $ships_by_type,
+            excavators  => $colony_excavators,
+        };
+
+        push @colony_data, $colony_datum;
+    #    last if $colony->name eq 'icydee 3';
     }
-    print "Getting ship yards\n";
-    my $ship_yards = $colony->building_type('Shipyard');
-    print "Getting archaeology ministry\n";
-    my $archaeology = $colony->archaeology;
 
-    push @all_ship_yards, @$ship_yards;
-    push @all_space_ports, $space_port;
-    push @all_archaeology, $archaeology;
 
-    my $colony_glyph_summary = {};
+    ##########
+    # Ensure there are enough excavators in the empire
+    ##########
 
-    if ($archaeology) {
-        # Get all the glyphs held on this colony
-        $colony_glyph_summary = $archaeology->get_glyph_summary;
+    print "There are a total of $total_excavators excavators in the empire\n";
+
+    if ($total_excavators < $glyph_config->{excavator_count}) {
+        _build_more_excavators({
+            to_build            => $glyph_config->{excavator_count} - $total_excavators,
+            shipyard_max_builds => $glyph_config->{shipyard_max_builds},
+            all_ship_yards      => \@all_ship_yards,
+        });
+    } else {
+        print "We have enough excavators in the empire no need to build more just yet!\n";
     }
 
-    # Get all the ships held on this colony by type
-    my $ships_by_type = $space_port->all_ships_by_type;
+    ##########
+    # Ensure there are enough probes on the excavation colony
+    ##########
 
-    my $colony_excavators;
-    if ($ships_by_type->{excavator}) {
-        $colony_excavators = $ships_by_type->{excavator};
-        print "there are ".scalar @$colony_excavators." excavators on ".$colony->name."\n";
-        $total_excavators += scalar @$colony_excavators;
+    my ($colony_datum) = grep{$_->{colony}->name eq $glyph_config->{excavator_launch_colony}} @colony_data;
+    print "The excavator launch colony is '".$colony_datum->{colony}->name."'\n";
+    my $probes = @{$colony_datum->{ships}{probe}};
+    print "There are '$probes' probes present on the exploration world '".$colony_datum->{colony}->name."'\n";
+
+    if ($probes < $glyph_config->{probe_count}) {
+        my $to_build = $glyph_config->{probe_count} - $probes;
+        print "We need to build a further $to_build probes\n";
+        _build_more_probes({
+            to_build                => $to_build,
+            ship_yards              => $colony_datum->{ship_yards},
+            probe_max_build_level   => $glyph_config->{probe_max_build_level},
+        });
     }
     else {
-        print "there are no excavators on ".$colony->name."\n";
+        print "We have enough probes ready to explore, no need to build more just yet!\n";
     }
-    my $colony_datum = {
-        colony      => $colony,
-        space_port  => $space_port,
-        ship_yards  => $ship_yards,
-        archaeology => $archaeology,
-        glyphs      => $colony_glyph_summary,
-        ships       => $ships_by_type,
-        excavators  => $colony_excavators,
-    };
 
-    push @colony_data, $colony_datum;
-#    last if $colony->name eq 'icydee 3';
+    ##########
+    # Transport excavators to the colony where they will be launched
+    ##########
+
+    _transport_excavators({
+        colony_data     => \@colony_data,
+        excavator_launch_colony     => $glyph_config->{excavator_launch_colony},
+        excavator_transport_type    => $glyph_config->{excavator_transport_type},
+        excavator_transport_name    => $glyph_config->{excavator_transport_name},
+    });
+
+    ##########
+    # Transport glyphs to the colony where they will be stored
+    ##########
+
+    _transport_glyphs({
+        colony_data             => \@colony_data,
+        glyph_store_colony      => $glyph_config->{glyph_store_colony},
+        glyph_transport_type    => $glyph_config->{glyph_transport_type},
+        glyph_transport_name    => $glyph_config->{glyph_transport_name},
+    });
 }
 
-# Ensure there are enough excavators in the empire
-print "There are a total of $total_excavators excavators in the empire\n";
 
-if ($total_excavators < $glyph_config->{excavator_count}) {
-    my $more_excavators = $glyph_config->{excavator_count} - $total_excavators;
-    print "We need to produce a further $more_excavators excavators\n";
+# Transport glyphs to the storage colony
+#
+sub _transport_glyphs {
+    my ($args) = @_;
+
+    my @colony_data             = @{$args->{colony_data}};
+    my $glyph_store_colony      = $args->{glyph_store_colony};
+    my $glyph_transport_type    = $args->{glyph_transport_type};
+    my $glyph_transport_name    = $args->{glyph_transport_name};
+
+    COLONY:
+    for my $colony_datum (@colony_data) {
+        # Transport the glyphs to the storage
+        print "Checking for glyps on '".$colony_datum->{colony}->name."'\n";
+
+        # Transport glyphs to the glyph store colony
+        print "Checking for glyphs on '".$colony_datum->{colony}->name."'\n";
+        if ($colony_datum->{colony}->name ne $glyph_store_colony) {
+
+            ### We need to know how many glyphs there are on this colony at this point
+            ###
+
+            my ($glyph_ship) =
+                grep {$_->name eq $glyph_transport_name}
+                @{$colony_datum->{ships}{$glyph_transport_type}};
+            if ($glyph_ship) {
+                print "ship to transport glyphs     is '".$glyph_ship->id."'\n";
+            }
+            else {
+                print "WARNING: Cannot find a transport for glyphs\n";
+            }
+        }
+    }
+}
+
+
+# Transport built excavators to the exploration colony
+#
+sub _transport_excavators {
+    my ($args) = @_;
+
+    my @colony_data                 = @{$args->{colony_data}};
+    my $excavator_launch_colony     = $args->{excavator_launch_colony};
+    my $excavator_transport_type    = $args->{excavator_transport_type};
+    my $excavator_transport_name    = $args->{excavator_transport_name};
+
+    COLONY:
+    for my $colony_datum (@colony_data) {
+        # Transport the excavators to the launch colony
+
+        next COLONY if ($colony_datum->{colony}->name eq $excavator_launch_colony);
+
+        print "Checking for excavators on '".$colony_datum->{colony}->name."'\n";
+        my @docked_excavators = grep {$_->task eq 'Docked'} @{$colony_datum->{excavators}};
+
+        print "Has ".scalar(@docked_excavators)." excavators to transport\n";
+        if (@docked_excavators) {
+            my ($excavator_ship) =
+                grep {$_->name eq $excavator_transport_name}
+                @{$colony_datum->{ships}{$excavator_transport_type}};
+            if ($excavator_ship) {
+                print "ship to transport excavators is '".$excavator_ship->id."'\n";
+                # How many excavators can the transporter transport?
+                my $capacity = int($excavator_ship->hold_size / 50);
+                if ($capacity) {
+                    while ($capacity && @docked_excavators) {
+                        my $ship = pop @docked_excavators;
+
+                        $capacity--;
+                    }
+                }
+                else {
+                    print "WARNING: The ship ".$excavator_ship->name." does not have capacity to transport ships\n";
+                }
+
+            }
+            else {
+                print "WARNING: Cannot find a transport for excavators\n";
+            }
+        }
+    }
+}
+
+
+# Build more Probes on the exploration colony
+#
+#
+# This is to ensure that the observatory is kept fully occupied since
+# the excavators will abandon probes once they have excavated all available
+# bodies in a system.
+#
+sub _build_more_probes {
+    my ($args) = @_;
+
+    my $to_build            = $args->{to_build};
+    my @ship_yards          = @{$args->{ship_yards}};
+    my $max_build_level     = $args->{probe_max_build_level};
+
+    my $cant_build_at;
+    my $build_level = 1;
+    BUILD:
+    while ($to_build && $build_level < $max_build_level) {
+        my $at_least_one_built;
+
+        SHIPYARD:
+        for my $shipyard (@ship_yards) {
+
+            # Ignore shipyards previously flagged as not being able to build
+            next SHIPYARD if $cant_build_at->{$shipyard->id};
+
+            my $ships_building = $shipyard->number_of_ships_building;
+            if ($ships_building < $build_level) {
+                # Build a probe here
+
+                print "Building probe at shipyard ".$shipyard->colony->name." ".$shipyard->x."/".$shipyard->y." ships_building = $ships_building \n";
+
+                if ( ! $shipyard->build_ship('probe') ) {
+                    # We can't build at this shipyard any more
+                    $shipyard->refresh;
+                    $cant_build_at->{$shipyard->id} = 1;
+                    next SHIPYARD;
+                }
+                $shipyard->refresh;
+                $to_build--;
+                $at_least_one_built = 1;
+                last BUILD if ! $to_build;
+            }
+        }
+        if ( ! $at_least_one_built) {
+            $build_level++;
+        }
+    }
+}
+
+
+# Build More Excavators in the empire
+#
+#   to_build                - number of excavators to build
+#   shipyard_max_builds     - maximum number of ships to put in shipyard build stack
+#   all_shipyards           - list ref to all shipyards
+#
+# Finds all shipyards able to produce excavators
+# Orders the shipyards by build queue size (smallest first)
+# Then iterates through the shipyards adding one more excavator to each
+# in a way that ensures that all build queues are leveled out and are kept
+# to less than or equal to the config 'shipyard_max_builds'.
+#
+# You only need to keep the queues full enough so that it is still working
+# the next time this routine is called
+#
+sub _build_more_excavators {
+    my ($args) = @_;
+
+    my $to_build            = $args->{to_build};
+    my $shipyard_max_builds = $args->{shipyard_max_builds};
+    my @all_ship_yards      = @{$args->{all_ship_yards}};
+
+    print "We need to produce a further $to_build excavators\n";
 
     # Find all shipyards able to build excavators
     my @shipyards_buildable;
@@ -142,7 +361,7 @@ if ($total_excavators < $glyph_config->{excavator_count}) {
     my @shipyards_sorted;
     for my $shipyard (sort {$a->number_of_ships_building <=> $b->number_of_ships_building} @shipyards_buildable) {
         print "Shipyard on colony ".$shipyard->colony->name." plot ".$shipyard->x."/".$shipyard->y." has ".$shipyard->number_of_ships_building." ships building\n";
-        if ($shipyard->number_of_ships_building < $glyph_config->{shipyard_max_builds}) {
+        if ($shipyard->number_of_ships_building < $shipyard_max_builds) {
             push @shipyards_sorted, $shipyard;
         }
     }
@@ -156,7 +375,7 @@ if ($total_excavators < $glyph_config->{excavator_count}) {
     my $min_free = 0;
     my $cant_build_at;                  # hash of shipyards we can't build at
     EXCAVATOR:
-    while ($more_excavators && $min_free < $glyph_config->{shipyard_max_builds}) {
+    while ($to_build && $min_free < $shipyard_max_builds) {
 
         my $at_least_one_built = 0;
         SHIPYARD:
@@ -183,11 +402,9 @@ if ($total_excavators < $glyph_config->{excavator_count}) {
             }
             $shipyard->refresh;
 
-            # If the shipyard can't handle it, then put it on the $cant_build_at hash and ignore it
-
-            $more_excavators--;
+            $to_build--;
             $at_least_one_built = 1;
-            last EXCAVATOR if $more_excavators <= 0;
+            last EXCAVATOR if $to_build <= 0;
         }
 
         unless ( $at_least_one_built ) {
@@ -196,64 +413,6 @@ if ($total_excavators < $glyph_config->{excavator_count}) {
         }
         print "Increment min_free\n";
         $min_free++;
-    }
-
-    # Order all space-ports by the number of spare docks they have (decreasing)
-} else {
-    print "We have enough excavators in the empire no need to build more just yet!\n";
-}
-
-### Transport excavators to the colony where they will be launched ###
-COLONY:
-for my $colony_datum (@colony_data) {
-    # Transport the excavators to the launch colony
-    print "Checking for excavators on '".$colony_datum->{colony}->name."'\n";
-    if ($colony_datum->{colony}->name ne $glyph_config->{excavator_launch_colony}) {
-        my @docked_excavators = grep {$_->task eq 'Docked'} @{$colony_datum->{excavators}};
-
-        print "Has ".scalar(@docked_excavators)." excavators to transport\n";
-        if (@docked_excavators) {
-            my ($excavator_ship) =
-                grep {$_->name eq $glyph_config->{excavator_transport_name}}
-                @{$colony_datum->{ships}{$glyph_config->{excavator_transport_type}}};
-            if ($excavator_ship) {
-                print "ship to transport excavators is '".$excavator_ship->id."'\n";
-                # How many excavators can the transporter transport?
-                my $capacity = int($excavator_ship->hold_size / 50);
-                if ($capacity) {
-                    while ($capacity && @docked_excavators) {
-                        my $ship = pop @docked_excavators;
-
-                        $capacity--;
-                    }
-                }
-                else {
-                    print "WARNING: The ship ".$excavator_ship->name." does not have capacity to transport ships\n";
-                }
-
-            }
-            else {
-                print "WARNING: Cannot find a transport for excavators\n";
-            }
-        }
-    }
-
-    # Transport glyphs to the glyph store colony
-    print "Checking for glyphs on '".$colony_datum->{colony}->name."'\n";
-    if ($colony_datum->{colony}->name ne $glyph_config->{glyph_store_colony}) {
-
-        ### We need to know how many glyphs there are on this colony at this point
-        ###
-
-        my ($glyph_ship) =
-            grep {$_->name eq $glyph_config->{glyph_transport_name}}
-            @{$colony_datum->{ships}{$glyph_config->{glyph_transport_type}}};
-        if ($glyph_ship) {
-            print "ship to transport glyphs     is '".$glyph_ship->id."'\n";
-        }
-        else {
-            print "WARNING: Cannot find a transport for glyphs\n";
-        }
     }
 }
 
