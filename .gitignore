@@ -8,4 +8,5 @@ blib/
 pm_to_blib
 myaccount.yml
 *.yml
-lacuna.db
+lacuna.db*
+

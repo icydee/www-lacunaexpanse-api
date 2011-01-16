@@ -23,18 +23,16 @@ for my $attr (@simple_strings, @date_strings, @other_strings) {
 
     __PACKAGE__->meta()->add_method(
         "_build_$attr" => sub {
-#print "generic accessing --- $attr\n";
             my ($self) = @_;
-            $self->update;
+            $self->update_generic;
             return $self->$attr;
         }
     );
 }
 
-
 # Refresh the object from the Server
 #
-sub update {
+sub update_generic {
     my ($self) = @_;
 
 print "### calling generic update ###\n";

@@ -53,94 +53,87 @@ print "COLONIES: ".join(',', map {$_->name} @colonies)."\n";
 my ($probe_colony)  = grep {$_->name eq $excavate_config->{probe_colony_name}} @{$my_empire->colonies};
 my $observatory     = $probe_colony->observatory;
 
-RESCAN:
-while (1) {
 
-    $observatory->refresh;
-    my $probed_star = $observatory->next_probed_star;
-    if ($probed_star) {
+$observatory->refresh;
+my $probed_star = $observatory->next_probed_star;
+if ($probed_star) {
 
-        my ($db_star, $db_body_rs, $db_body);
+    my ($db_star, $db_body_rs, $db_body);
 
-        _save_probe_data($schema, $probed_star, 3);
-        $db_star    = $schema->resultset('Star')->find($probed_star->id);
-        $db_body_rs = $db_star->bodies;
-        $db_body    = $db_body_rs->first;
+    _save_probe_data($schema, $probed_star, 3);
+    $db_star    = $schema->resultset('Star')->find($probed_star->id);
+    $db_body_rs = $db_star->bodies;
+    $db_body    = $db_body_rs->first;
 
 COLONY:
-        for my $colony (sort {$a->name cmp $b->name} @colonies) {
+    for my $colony (sort {$a->name cmp $b->name} @colonies) {
 
-            my $space_port  = $colony->space_port;
-            next COLONY if ! $space_port;
-            my @excavators;
+        my $space_port  = $colony->space_port;
+        next COLONY if ! $space_port;
+        my @excavators;
 
-            $space_port->refresh;
+        $space_port->refresh;
 
-            @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
-            print "Colony ".$colony->name." has ".scalar(@excavators)." docked excavators\n";
-            next COLONY unless @excavators;
+        @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
+        print "Colony ".$colony->name." has ".scalar(@excavators)." docked excavators\n";
+        next COLONY unless @excavators;
 
-            # Send to a body around the next closest star
+        # Send to a body around the next closest star
 EXCAVATOR:
-            while (@excavators && $probed_star) {
-#                print "checking next closest body ".$probed_star->name."\n";
-                if ( ! $db_body ) {
-                    # Mark the star as exhausted, the probe can be abandoned
-                    print "Star ".$probed_star->name." has no more unexcavated bodies\n";
-                    $db_star->status(5);
-                    $db_star->update;
-                    $observatory->abandon_probe($probed_star->id);
-                    $observatory->refresh;
+        while (@excavators && $probed_star) {
+#            print "checking next closest body ".$probed_star->name."\n";
+            if ( ! $db_body ) {
+                # Mark the star as exhausted, the probe can be abandoned
+                print "Star ".$probed_star->name." has no more unexcavated bodies\n";
+                $db_star->status(5);
+                $db_star->update;
+                $observatory->abandon_probe($probed_star->id);
+                $observatory->refresh;
 
-                    $probed_star = $observatory->next_probed_star;
-                    last EXCAVATOR unless $probed_star;
+                $probed_star = $observatory->next_probed_star;
+                last EXCAVATOR unless $probed_star;
 
-                    _save_probe_data($schema, $probed_star);
-                    $db_star    = $schema->resultset('Star')->find($probed_star->id);
-                    $db_body_rs = $db_star->bodies;
-                    $db_body    = $db_body_rs->first;
+                _save_probe_data($schema, $probed_star);
+                $db_star    = $schema->resultset('Star')->find($probed_star->id);
+                $db_body_rs = $db_star->bodies;
+                $db_body    = $db_body_rs->first;
 
-                    next EXCAVATOR;
-                }
-                # If the body is occupied, ignore it
-                if ($db_body->empire_id) {
-                    print "Body ".$db_body->name." is occupied, ignore it\n";
-                    $db_body = $db_body_rs->next;
-                    if ( ! $db_body ) {
-                        next EXCAVATOR;
-                    }
-                }
-
-                # Get all excavators that can be sent to this planet
-                my @send_excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $db_body->id })}; #<<<1>>>#
-
-                if ( ! @send_excavators ) {
-#                    @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
-
-                    if ( ! @excavators) {
-                        # No more excavators at this colony
-                        print "No more excavators to send from ".$colony->name."\n";
-                        next COLONY;
-                    }
-                    print "Can't send excavators to ".$db_body->name."\n";
-                    $db_body = $db_body_rs->next;
-                    next EXCAVATOR;
-                }
-
-                my $distance = int(sqrt(($db_body->x - $colony->x)**2 + ($db_body->y - $colony->y)**2));
-                print "Sending Excavator to '".$db_body->name."' a distance of $distance\n";
-                my $first_excavator = $send_excavators[0];
-                $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
-                @excavators = grep {$_->id != $first_excavator->id} @excavators;
-#                $space_port->refresh; #<<<2>>>#
-                $db_body = $db_body_rs->next;
+                next EXCAVATOR;
             }
+            # If the body is occupied, ignore it
+            if ($db_body->empire_id) {
+                print "Body ".$db_body->name." is occupied, ignore it\n";
+                $db_body = $db_body_rs->next;
+                if ( ! $db_body ) {
+                    next EXCAVATOR;
+                }
+            }
+
+            # Get all excavators that can be sent to this planet
+            my @send_excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $db_body->id })}; #<<<1>>>#
+
+            if ( ! @send_excavators ) {
+#                @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
+
+                if ( ! @excavators) {
+                    # No more excavators at this colony
+                    print "No more excavators to send from ".$colony->name."\n";
+                    next COLONY;
+                }
+                print "Can't send excavators to ".$db_body->name."\n";
+                $db_body = $db_body_rs->next;
+                next EXCAVATOR;
+            }
+
+            my $distance = int(sqrt(($db_body->x - $colony->x)**2 + ($db_body->y - $colony->y)**2));
+            print "Sending Excavator to '".$db_body->name."' a distance of $distance\n";
+            my $first_excavator = $send_excavators[0];
+            $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
+            @excavators = grep {$_->id != $first_excavator->id} @excavators;
+#            $space_port->refresh; #<<<2>>>#
+            $db_body = $db_body_rs->next;
         }
     }
-    my $sleep = $excavate_config->{send_excavator_sleep};
-    my $formatted_time = WWW::LacunaExpanse::API::DateTime->format_seconds($sleep);
-    print "SENDING EXCAVATORS again in $formatted_time\n\n";
-    sleep($sleep);
 }
 
 # Save probe data in database

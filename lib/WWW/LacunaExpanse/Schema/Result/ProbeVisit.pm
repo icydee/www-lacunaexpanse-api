@@ -1,11 +1,11 @@
-package WWW::LacunaExpanse::Schema::Result::Distance;
+package WWW::LacunaExpanse::Schema::Result::ProbeVisit;
 
 use Modern::Perl;
 
 use base 'DBIx::Class';
 
 __PACKAGE__->load_components('PK::Auto','Core');
-__PACKAGE__->table("distance");
+__PACKAGE__->table("probe_visit");
 
 __PACKAGE__->add_columns(
     id => {
@@ -14,39 +14,26 @@ __PACKAGE__->add_columns(
         is_nullable     => 0,
         size            => 10,
     },
-    from_id => {
+    star_id => {
         data_type       => "INT",
         default_value   => undef,
         is_nullable     => 0,
         size            => 10,
     },
-    to_id => {
-        data_type       => "INT",
-        default_value   => undef,
-        is_nullable     => 0,
-        size            => 10,
-    },
-    distance => {
-        data_type       => "INT",
-        default_value   => undef,
+    on_date => {
+        data_type       => "TEXT",
+        default_value   => "",
         is_nullable     => 0,
         size            => 10,
     },
 );
 __PACKAGE__->set_primary_key("id");
 
-# Every Distance has a From Body
+# Every Body has a Star
 __PACKAGE__->belongs_to(
-  "from_star",
+  "star",
   "WWW::LacunaExpanse::Schema::Result::Star",
-  { id => "from_id" },
-);
-
-# Every Distance has a To Star
-__PACKAGE__->belongs_to(
-  "to_star",
-  "WWW::LacunaExpanse::Schema::Result::Star",
-  { id => "to_id" },
+  { id => "star_id" },
 );
 
 1;

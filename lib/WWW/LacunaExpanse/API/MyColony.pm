@@ -59,7 +59,6 @@ sub _build_buildings {
         $self->connection->debug(0);
         my $result = $self->connection->call($path, 'get_buildings',[$self->connection->session_id, $self->id]);
         $self->connection->debug(0);
-
         my $body = $result->{result}{buildings};
         for my $id (keys %$body) {
 
@@ -102,6 +101,7 @@ sub _build_buildings {
                     colony          => $self,
                 }
             );
+
             push @buildings, $building;
         }
     }
@@ -151,6 +151,15 @@ sub archaeology {
 
     my ($archaeology) = grep {$_->name eq 'Archaeology Ministry'} @{$self->buildings};
     return $archaeology;
+}
+
+# Return the Planetary Command Center
+#
+sub planetary_command_center {
+    my ($self) = @_;
+
+    my ($pcc) = grep {$_->name eq 'Planetary Command Center'} @{$self->buildings};
+    return $pcc;
 }
 
 # Return all buildings of a particular type

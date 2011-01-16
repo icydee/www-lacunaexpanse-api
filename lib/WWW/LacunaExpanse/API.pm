@@ -26,9 +26,11 @@ use WWW::LacunaExpanse::API::Alliance;
 use WWW::LacunaExpanse::API::EmpireStats;
 use WWW::LacunaExpanse::API::BuildingFactory;
 use WWW::LacunaExpanse::API::Building::Timer;
+use WWW::LacunaExpanse::API::Building::Generic;
 use WWW::LacunaExpanse::API::Building::SpacePort;
 use WWW::LacunaExpanse::API::Building::GeneticsLab;
 use WWW::LacunaExpanse::API::Building::ArchaeologyMinistry;
+use WWW::LacunaExpanse::API::Building::PlanetaryCommandCenter;
 
 # This is the base class for the API
 

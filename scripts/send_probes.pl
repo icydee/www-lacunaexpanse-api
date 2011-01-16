@@ -77,59 +77,44 @@ if ($distance_count != $star_count) {
     }
 }
 
-# This script is intended to be run continuously. To stop it hit ctrl-c
+####################################################################################
+### Send probes out to new stars                                                 ###
+####################################################################################
+
+my @probes_docked       = grep {$_->task eq 'Docked'}       $space_port->all_ships('probe');
+my @probes_travelling   = grep {$_->task eq 'Travelling'}   $space_port->all_ships('probe');
+
+# Max number of probes we can send is the observatory max_probes minus observatory probed_stars
+# minus the number of travelling probes.
 #
-RESCAN:
-while (1) {
-
-    ####################################################################################
-    ### Send probes out to new stars                                                 ###
-    ####################################################################################
-
-    my @probes_docked       = grep {$_->task eq 'Docked'}       $space_port->all_ships('probe');
-    my @probes_travelling   = grep {$_->task eq 'Travelling'}   $space_port->all_ships('probe');
-
-    # Max number of probes we can send is the observatory max_probes minus observatory probed_stars
-    # minus the number of travelling probes.
-    #
-    my $observatory_probes_free = $observatory->max_probes - $observatory->count_probed_stars - scalar @probes_travelling;
-    print "There are $observatory_probes_free slots available\n";
-    print "There are ".scalar(@probes_docked)." docked probes\n";
-    my $max_probes_to_send = min(scalar(@probes_docked), $observatory_probes_free);
+my $observatory_probes_free = $observatory->max_probes - $observatory->count_probed_stars - scalar @probes_travelling;
+print "There are $observatory_probes_free slots available\n";
+print "There are ".scalar(@probes_docked)." docked probes\n";
+my $max_probes_to_send = min(scalar(@probes_docked), $observatory_probes_free);
 PROBE:
-    while ($max_probes_to_send) {
+while ($max_probes_to_send) {
 
-        my ($probeable_star, $probe) = _next_star_to_probe($schema, $space_port, $observatory);
-        if ( ! $probeable_star ) {
-            print "Something seriously wrong. Can't find a star to probe\n";
-            last PROBE;
-        }
-
-        print "Sending probe ID ".$probe->id." to star ".$probeable_star->name;
-        my $arrival_time = $space_port->send_ship($probe->id, {star_id => $probeable_star->id});
-
-        # mark the star as 'pending' the arrival of the probe
-        $probeable_star->status(1);
-        $probeable_star->update;
-        print " and will arrive at $arrival_time\n";
-
-        $max_probes_to_send--;
+    my ($probeable_star, $probe) = _next_star_to_probe($schema, $space_port, $observatory);
+    if ( ! $probeable_star ) {
+        print "Something seriously wrong. Can't find a star to probe\n";
+        last PROBE;
     }
-    my $sleep = $excavate_config->{send_probes_sleep};
-    my $formatted_time = WWW::LacunaExpanse::API::DateTime->format_seconds($sleep);
-    print "SENDING PROBES again in $formatted_time\n\n";
-    sleep($sleep);
 
-    $observatory->refresh;
-    $space_port->refresh;
+    print "Sending probe ID ".$probe->id." to star ".$probeable_star->name;
+    my $arrival_time = $space_port->send_ship($probe->id, {star_id => $probeable_star->id});
+
+    # mark the star as 'pending' the arrival of the probe
+    $probeable_star->status(1);
+    $probeable_star->update;
+    print " and will arrive at $arrival_time\n";
+
+    $max_probes_to_send--;
 }
 
 
 # Get a new candidate star to probe
 #
-# Currently we do not try to avoid stars with bodies excavated in
-# the last 30 days, but if you send out far enough the chances are
-# pretty slim. (It is a big universe out there!)
+# Avoid sending a probe to a star we have visited in the last 30 days
 #
 sub _next_star_to_probe {
     my ($schema, $space_port, $observatory) = @_;
@@ -149,21 +134,28 @@ sub _next_star_to_probe {
 
     print "Probing a distance of $distance\n";
 
-    # Only send probes to stars previously unvisited or where the probe has been deleted
-    # you 'could' make this only stars that have never been visited without a problem
+    # For now, only send to stars not previously probed.
+    # In time all local stars will be 'mined out' but we can worry about that later.
+    #
     my $distance_rs = $schema->resultset('Distance')->search_rs({
-        from_id             => $centre_star->id,
-        'to_star.status'    => [5, undef ],
-        distance            => {'>', $distance},
+        from_id                 => $centre_star->id,
+        distance                => {'>', $distance},
     }
     ,{
-        join        => 'to_star',
+        join        => {to_star => 'probe_visits'},
         order_by    => 'distance',
     });
 
 DISTANCE:
     while (my $distance = $distance_rs->next) {
         $star = $distance->to_star;
+
+        # For now, ignore any stars we have previously probed. Later on
+        # we will have to check for a date > 30 days ago
+        if ($star->probe_visits->count) {
+            print "Ignoring ".$star->name." we have visited it before\n";
+            next DISTANCE;
+        }
 
         print "Getting available ships for ".$star->name."\n";
         my $available_ships     = $space_port->get_available_ships_for({ star_id => $star->id });
@@ -172,6 +164,12 @@ DISTANCE:
         $probe = $available_probes[0];
         last DISTANCE if $probe;
     }
+    # Update the database, so we don't send one there again
+    $schema->resultset('ProbeVisit')->create({
+        star_id     => $star->id,
+        on_date     => WWW::LacunaExpanse::API::DateTime->now,
+    });
+
     print "  ".$probe->id." probe found\n";
     return ($star,$probe);
 }

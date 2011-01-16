@@ -2,8 +2,6 @@
 --- Add fields and table to record excavator activity
 ---
 
---- alter table body add column excavated_on text;
-
 create table excavation (
     id          integer primary key autoincrement,
     body_id     integer,
@@ -29,3 +27,11 @@ create table api_hits (
     hits        integer
 );
 
+--- ensure we don't probe/excavate the same star in 30 days
+
+create table probe_visit (
+    id          integer primary key autoincrement,
+    star_id     integer,
+    on_date     text,
+    foreign key(star_id) references star(id)
+);

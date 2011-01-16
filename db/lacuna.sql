@@ -16,7 +16,7 @@ CREATE TABLE body (
     image       text,
     size        integer,
     type        text,
-    star_id     star,
+    star_id     integer,
     empire_id   integer,
     water       integer,
     foreign key(star_id) references star(id)
@@ -26,8 +26,8 @@ CREATE TABLE distance (
     from_id     integer,
     to_id       integer,
     distance    integer,
-    foreign key(from_id) references body(id),
-    foreign key(to_id) references body(id)
+    foreign key(from_id) references star(id),
+    foreign key(to_id) references star(id)
 );
 CREATE TABLE excavation (
     id          integer primary key autoincrement,

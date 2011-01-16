@@ -72,4 +72,11 @@ __PACKAGE__->has_many(
   { "foreign.star_id" => "self.id" },
 );
 
+# A star may have many probes visit it
+__PACKAGE__->has_many(
+  "probe_visits",
+  "WWW::LacunaExpanse::Schema::Result::ProbeVisit",
+  { "foreign.star_id" => "self.id" },
+);
+
 1;

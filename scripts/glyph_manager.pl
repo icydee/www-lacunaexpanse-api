@@ -68,11 +68,16 @@ my @all_space_ports;
 my @all_archaeology;
 
 # Get the buildings for each colony.
+COLONY:
 for my $colony (sort {$a->name cmp $b->name} @$colonies) {
 
     print "COLONY ".$colony->name."\n";
     print "Getting space port\n";
     my $space_port = $colony->space_port;
+    if ( ! $space_port ) {
+        print "Has no space port!\n";
+        next COLONY;
+    }
     print "Getting ship yards\n";
     my $ship_yards = $colony->building_type('Shipyard');
     print "Getting archaeology ministry\n";
@@ -213,6 +218,19 @@ for my $colony_datum (@colony_data) {
                 @{$colony_datum->{ships}{$glyph_config->{excavator_transport_type}}};
             if ($excavator_ship) {
                 print "ship to transport excavators is '".$excavator_ship->id."'\n";
+                # How many excavators can the transporter transport?
+                my $capacity = int($excavator_ship->hold_size / 50);
+                if ($capacity) {
+                    while ($capacity && @docked_excavators) {
+                        my $ship = pop @docked_excavators;
+
+                        $capacity--;
+                    }
+                }
+                else {
+                    print "WARNING: The ship ".$excavator_ship->name." does not have capacity to transport ships\n";
+                }
+
             }
             else {
                 print "WARNING: Cannot find a transport for excavators\n";
