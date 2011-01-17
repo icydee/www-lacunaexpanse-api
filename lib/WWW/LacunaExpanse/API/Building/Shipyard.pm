@@ -77,6 +77,7 @@ sub get_buildable {
             water       => $cost_hash->{water},
         });
 
+#print Dumper $ship_hash;
         my $virtual_ship = WWW::LacunaExpanse::API::VirtualShip->new({
             type        => $ship_type,
             hold_size   => 0,
@@ -85,8 +86,8 @@ sub get_buildable {
             cost        => $cost,
             type_human  => $ship_hash->{type_human},
             can_build   => $ship_hash->{can},
-            reason_code => $ship_hash->{can} == 0 ? $ship_hash->{reason}[0] : '',
-            reason_text => $ship_hash->{can} == 0 ? $ship_hash->{reason}[1] : '',
+            reason_code => $ship_hash->{can} == 0 && $ship_hash->{reason} ? $ship_hash->{reason}[0] : '',
+            reason_text => $ship_hash->{can} == 0 && $ship_hash->{reason} ? $ship_hash->{reason}[1] : '',
         });
 
         push @ships, $virtual_ship;

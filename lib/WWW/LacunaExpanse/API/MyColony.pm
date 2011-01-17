@@ -153,6 +153,16 @@ sub archaeology {
     return $archaeology;
 }
 
+# Return the Trade Ministry
+#
+sub trade_ministry {
+    my ($self) = @_;
+
+    my ($trade) = grep {$_->name eq 'Trade Ministry'} @{$self->buildings};
+    return $trade;
+}
+
+
 # Return the Planetary Command Center
 #
 sub planetary_command_center {
