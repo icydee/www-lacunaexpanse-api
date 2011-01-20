@@ -1,5 +1,58 @@
 # Template file for glyph_manager.pl. Copy this to glyph_manager.yml and make changes
 #
-# Number of excavators to have in the empire at any time
-excavator_count:    210
+# Base hour (on sunday) from which to calculate the run time of each
+# part of the script. For example if you select 1 then the script will be run in hour
+# 01 in the early hours of Monday, then at 08, then at 15 then at 22, then at 05 (on
+# Tuesday, etc. each gap being seven hours from the previous.
+base_hour:          6
 
+# Number of excavators to have in the empire at any time
+excavator_count:    360
+
+# Maximum number of probes to build in each shipyard.
+probe_max_build_level:  3
+
+# Number of probes to have on the exploration colony (docked or travelling)
+probe_count:        30
+
+# Maximum number of excavators to build on each shipyard. Based on each ship build
+# taking about 4 hours then 3 ships in the build queue (12hrs) and seven hours between
+# calls to the excavate script ensures that the queues are kept full
+shipyard_max_builds:    3
+
+# Colony to use to collect all glyphs
+glyph_store_colony:     'colony store'
+
+# Colony to use to launch all excavators
+excavator_launch_colony:    'colony export'
+
+# Type and Name of ship (must be same on all colonies) to transport glyphs back to home world
+# name must be unique (you should only need one per colony).
+glyph_transport_type:       'dory'
+glyph_transport_name:       'AI Glyph'
+
+# Type and Name of ship (must be same on all colonies) to transport excavators to the colony
+# where they will be launched.
+excavator_transport_type:   'freighter'
+excavator_transport_name:   'AI Freighter'
+
+# star name to act as centre location for distance calculations, usually your empire star
+centre_star_name:   'Flu Greahae Sphi'
+
+# Max and Min distance to send probes and excavators (default to 100 and 300)
+#
+# At these distances there are about 3333 stars so over 30 days you could
+# visit 111 stars per day (about 700 excavators) then start all over again.
+# so you only have a slim chance of sending a probe to the same star in
+# a 30 day period.
+#
+# If you set these values too low you will run out of bodies to excavate or
+# start sending probes to the same stars too often
+min_distance:   100
+max_distance:   300
+
+# Sometimes send out an ultra long distance. 1 chance in 'ultra_chance'.
+# set ultra_chance to 0 if you don't want this option
+ultra_chance:   50
+ultra_min:      1800
+ultra_max:      2100

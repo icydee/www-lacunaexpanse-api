@@ -59,13 +59,17 @@ MAIN: {
         debug_hits  => $my_account->{debug_hits},
     });
 
+    my $dsn     = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
+    my $schema  = WWW::LacunaExpanse::Schema->connect($dsn);
+
     my $tasks = {
         0.0     => \&_send_excavators,
-        0.1     => \&_build_and_send_probes,
-        0.2     => \&_start_glyph_search,
-        0.3     => \&_build_excavators,
-#        0.4     => \&_transport_glyphs,
+        0.1     => \&_build_probes,
+        0.3     => \&_start_glyph_search,
+        0.4     => \&_build_excavators,
+        0.5     => \&_transport_glyphs,
         5.0     => \&_transport_excavators,
+        5.1     => \&_send_probes,
     };
 
     # Calculate tasks
@@ -74,6 +78,8 @@ MAIN: {
     my $current_hour    = $current_day * 24 + $now->hour;
     my $base_hour       = $glyph_config->{base_hour};
     my $task_hour       = ($base_hour + $current_hour) % 7;
+
+#$task_hour = 0;
 
     my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
@@ -136,7 +142,9 @@ MAIN: {
         else {
             print "there are no excavators on ".$colony->name."\n";
         }
+
         my $colony_datum = {
+            api             => $api,
             colony          => $colony,
             space_port      => $space_port,
             trade_ministry  => $trade_ministry,
@@ -155,8 +163,12 @@ MAIN: {
     # Do all the tasks due on this hour
     ##########
 
+
     for my $key (@current_tasks) {
+
         &{$tasks->{$key}}({
+            api                 => $api,
+            schema              => $schema,
             config              => $glyph_config,
             colonies            => $colonies,
             colony_data         => \@colony_data,
@@ -169,13 +181,162 @@ MAIN: {
 }
 
 
+####################################################################################
+### Send probes out to new stars                                                 ###
+####################################################################################
+
+sub _send_probes {
+    my ($args) = @_;
+
+    my $config              = $args->{config};
+    my $launch_colony_name  = $config->{excavator_launch_colony};
+    my ($colony)            = grep {$_->name eq $launch_colony_name} @{$args->{colonies}};
+
+    print "LAUNCH COLONY NAME IS '$launch_colony_name'\n";
+    my $space_port          = $colony->space_port;
+    my $observatory         = $colony->observatory;
+    my $schema              = $args->{schema};
+    my $api                 = $args->{api};
+
+    my @probes_docked       = $space_port->all_ships('probe', 'Docked');
+    my @probes_travelling   = $space_port->all_ships('probe', 'Travelling');
+
+    my $centre_star = $api->find({ star => $config->{centre_star_name} }) || die "Cannot find star (".$config->{centre_star_name},")";
+
+    # Max number of probes we can send is the observatory max_probes minus observatory probed_stars
+    # minus the number of travelling probes.
+    #
+    my $observatory_probes_free = $observatory->max_probes - $observatory->count_probed_stars - scalar @probes_travelling;
+    print "There are $observatory_probes_free slots available\n";
+    print "There are ".scalar(@probes_docked)." docked probes\n";
+    my $max_probes_to_send = min(scalar(@probes_docked), $observatory_probes_free);
+    PROBE:
+    while ($max_probes_to_send) {
+
+        my ($probeable_star, $probe) = _next_star_to_probe($schema, $args->{config}, $space_port, $observatory, $centre_star);
+        if ( ! $probeable_star ) {
+            print "Something seriously wrong. Can't find a star to probe\n";
+            last PROBE;
+        }
+
+        print "Sending probe ID ".$probe->id." to star ".$probeable_star->name;
+        my $arrival_time = $space_port->send_ship($probe->id, {star_id => $probeable_star->id});
+
+        # mark the star as 'pending' the arrival of the probe
+        $probeable_star->status(1);
+        $probeable_star->update;
+        print " and will arrive at $arrival_time\n";
+
+        $max_probes_to_send--;
+    }
+}
+
+
 # Send excavators to probed systems
 #
 sub _send_excavators {
     my ($args) = @_;
 
-    print "_send_excavators, not yet implemented\n";
+    # Colony to send excavators out from
+    my $launch_colony_name  = $args->{config}{excavator_launch_colony};
+    my ($colony)            = grep {$_->name eq $launch_colony_name} @{$args->{colonies}};
+    my $observatory         = $colony->observatory;
+    my $schema              = $args->{schema};
+    my $api                 = $args->{api};
+
+    print "Launching excavators from colony $launch_colony_name\n";
+
+
+    $observatory->refresh;
+    my $probed_star = $observatory->next_probed_star;
+
+    if (! $probed_star) {
+        print "There are no more probed stars!\n";
+        return;
+    }
+
+    my ($db_star, $db_body_rs, $db_body);
+
+    _save_probe_data($schema, $api, $probed_star);
+    $db_star    = $schema->resultset('Star')->find($probed_star->id);
+    $db_body_rs = $db_star->bodies;
+    $db_body    = $db_body_rs->first;
+
+    my $space_port  = $colony->space_port;
+    if ( ! $space_port ) {
+        print "There is no space port!\n";
+        return;
+    }
+
+    my @excavators;
+
+    $space_port->refresh;
+
+    @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
+    print "Colony ".$colony->name." has ".scalar(@excavators)." docked excavators\n";
+
+    if ( ! @excavators) {
+        print "There are no excavators to send\n";
+        return;
+    }
+
+    # Send to a body around the next closest star
+EXCAVATOR:
+    while (@excavators && $probed_star) {
+#        print "checking next closest body ".$probed_star->name."\n";
+        if ( ! $db_body ) {
+            # Mark the star as exhausted, the probe can be abandoned
+            print "Star ".$probed_star->name." has no more unexcavated bodies\n";
+            $db_star->status(5);
+            $db_star->update;
+            $observatory->abandon_probe($probed_star->id);
+            $observatory->refresh;
+
+            $probed_star = $observatory->next_probed_star;
+            last EXCAVATOR unless $probed_star;
+
+            _save_probe_data($schema, $api, $probed_star);
+            $db_star    = $schema->resultset('Star')->find($probed_star->id);
+            $db_body_rs = $db_star->bodies;
+            $db_body    = $db_body_rs->first;
+
+            next EXCAVATOR;
+        }
+        # If the body is occupied, ignore it
+        if ($db_body->empire_id) {
+            print "Body ".$db_body->name." is occupied, ignore it\n";
+            $db_body = $db_body_rs->next;
+            if ( ! $db_body ) {
+                next EXCAVATOR;
+            }
+        }
+
+        # Get all excavators that can be sent to this planet
+        my @send_excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $db_body->id })}; #<<<1>>>#
+
+        if ( ! @send_excavators ) {
+#                @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
+
+            if ( ! @excavators) {
+                # No more excavators at this colony
+                print "No more excavators to send from ".$colony->name."\n";
+                return;
+            }
+            print "Can't send excavators to ".$db_body->name."\n";
+            $db_body = $db_body_rs->next;
+            next EXCAVATOR;
+        }
+
+        my $distance = int(sqrt(($db_body->x - $colony->x)**2 + ($db_body->y - $colony->y)**2));
+        print "Sending Excavator to '".$db_body->name."' a distance of $distance\n";
+        my $first_excavator = $send_excavators[0];
+        $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
+        @excavators = grep {$_->id != $first_excavator->id} @excavators;
+         $space_port->refresh; #<<<2>>>#
+        $db_body = $db_body_rs->next;
+    }
 }
+
 
 # start a glyph search
 #
@@ -202,14 +363,14 @@ sub _transport_glyphs {
     my ($args) = @_;
 
     my @colony_data             = @{$args->{colony_data}};
-    my $glyph_store_colony      = $args->{glyph_store_colony};
-    my $glyph_transport_type    = $args->{glyph_transport_type};
-    my $glyph_transport_name    = $args->{glyph_transport_name};
+    my $config                  = $args->{config};
+
+    my $glyph_store_colony      = $config->{glyph_store_colony};
+    my $glyph_transport_type    = $config->{glyph_transport_type};
+    my $glyph_transport_name    = $config->{glyph_transport_name};
 
     COLONY:
     for my $colony_datum (@colony_data) {
-        # Transport the glyphs to the storage
-        print "Checking for glyps on '".$colony_datum->{colony}->name."'\n";
 
         # Transport glyphs to the glyph store colony
         print "Checking for glyphs on '".$colony_datum->{colony}->name."'\n";
@@ -260,13 +421,17 @@ sub _transport_excavators {
 
         print "Has ".scalar(@docked_excavators)." excavators to transport\n";
         if (@docked_excavators) {
-            my ($excavator_ship) =
+            my @transport_ships =
                 grep {$_->name eq $excavator_transport_name}
                 @{$colony_datum->{ships}{$excavator_transport_type}};
-            if ($excavator_ship && $excavator_ship->task eq 'Docked') {
-                print "ship to transport excavators is '".$excavator_ship->id."'\n";
+
+            TRANSPORT:
+            for my $transport_ship (grep {$_->task eq 'Docked'} @transport_ships) {
+                last TRANSPORT if ! @docked_excavators;
+
+                print "ship to transport excavators is '".$transport_ship->id."'\n";
                 # How many excavators can the transporter transport?
-                my $capacity = int($excavator_ship->hold_size / 50000);
+                my $capacity = int($transport_ship->hold_size / 50000);
                 if ($capacity) {
                     my @items;
                     while ($capacity && scalar @docked_excavators) {
@@ -277,16 +442,13 @@ sub _transport_excavators {
 
                         $capacity--;
                     }
-                    print "Pushing items to colony ".$excavator_launch_colony->name." with ship ".$excavator_ship->name."\n";
-                    $trade_ministry->push_items($excavator_launch_colony, \@items, {ship_id => $excavator_ship->id});
+                    print "Pushing items to colony ".$excavator_launch_colony->name." with ship ".$transport_ship->name."\n";
+                    $trade_ministry->push_items($excavator_launch_colony, \@items, {ship_id => $transport_ship->id});
                 }
                 else {
-                    print "WARNING: The ship ".$excavator_ship->name." does not have capacity (".$excavator_ship->hold_size.") to transport ships\n";
+                    print "WARNING: The ship ".$transport_ship->name." does not have capacity (".$transport_ship->hold_size.") to transport ships\n";
                 }
 
-            }
-            else {
-                print "WARNING: Cannot find a transport for excavators\n";
             }
         }
     }
@@ -299,15 +461,20 @@ sub _transport_excavators {
 # the excavators will abandon probes once they have excavated all available
 # bodies in a system.
 #
-sub _build_and_send_probes {
+sub _build_probes {
     my ($args) = @_;
 
-    my @colony_data         = @{$args->{colony_data}};
     my $config              = $args->{config};
-    my @ship_yards          = @{$args->{all_ship_yards}};
+    my @colony_data         = @{$args->{colony_data}};
+    my $launch_colony_name  = $config->{excavator_launch_colony};
+    my ($colony)            = grep {$_->name eq $launch_colony_name} @{$args->{colonies}};
+
+    # Get all ship-yards at this colony
+    my @ship_yards          = @{$colony->building_type('Shipyard')};
+
 
     my ($colony_datum)      = grep{$_->{colony}->name eq $config->{excavator_launch_colony}} @colony_data;
-    print "Launching Excavators from Colony ".$colony_datum->{colony}->name."\n";
+    print "Launching Probes from Colony ".$colony->name."\n";
 
     my $colony_probes       = @{$colony_datum->{ships}{probe}};
     print "There are currently $colony_probes probes building, docked or travelling\n";
@@ -453,5 +620,127 @@ sub _build_excavators {
     }
 }
 
+# Save probe data in database
+
+sub _save_probe_data {
+    my ($schema, $api, $probed_star) = @_;
+
+    # See if we have previously probed this star
+    my $db_star = $schema->resultset('Star')->find($probed_star->id);
+
+    if ($db_star->scan_date) {
+        print "Previously scanned star system [".$db_star->name."]. Don't scan again\n";
+        if ($db_star->status == 1) {
+            $db_star->status(3);
+            $db_star->update;
+        }
+    }
+    else {
+        print "Saving scanned data for star system [".$db_star->name."]\n";
+        for my $body (@{$probed_star->bodies}) {
+            my $db_body = $schema->resultset('Body')->find($body->id);
+            if ( $db_body ) {
+                # We already have the body data, just update the empire data
+                $db_body->empire_id($body->empire ? $body->empire->id : undef);
+                $db_body->update;
+            }
+            else {
+                # We need to create it
+                my $db_body = $schema->resultset('Body')->create({
+                    id          => $body->id,
+                    orbit       => $body->orbit,
+                    name        => $body->name,
+                    x           => $body->x,
+                    y           => $body->y,
+                    image       => $body->image,
+                    size        => $body->size,
+                    type        => $body->type,
+                    star_id     => $probed_star->id,
+                    empire_id   => $body->empire ? $body->empire->id : undef,
+                    water       => $body->water,
+                });
+                # Check the ores for this body
+                my $body_ore = $body->ore;
+                for my $ore_name (WWW::LacunaExpanse::API::Ores->ore_names) {
+                    # we only store ore data if the quantity is greater than 1
+                    if ($body_ore->$ore_name > 1) {
+                        my $db_ore = $schema->resultset('LinkBodyOre')->create({
+                            ore_id      => WWW::LacunaExpanse::API::Ores->ore_index($ore_name),
+                            body_id     => $db_body->id,
+                            quantity    => $body_ore->$ore_name,
+                        });
+                    }
+                }
+
+            }
+        }
+        $db_star->scan_date(DateTime->now);
+        $db_star->status(3);
+        $db_star->empire_id($api->my_empire->id);
+        $db_star->update;
+    }
+}
+
+# Get a new candidate star to probe
+#
+# Avoid sending a probe to a star we have visited in the last 30 days
+#
+sub _next_star_to_probe {
+    my ($schema, $config, $space_port, $observatory, $centre_star) = @_;
+
+    my ($star, $probe);
+
+    # Locate a star at a random distance
+
+    my $max_distance = $config->{max_distance};
+    my $min_distance = $config->{min_distance};
+    if ($config->{ultra_chance} && int(rand($config->{ultra_chance})) == 0 ) {
+        $max_distance = $config->{ultra_max};
+        $min_distance = $config->{ultra_min};
+    }
+
+    my $distance = int(rand($max_distance - $min_distance)) + $min_distance;
+
+    print "Probing a distance of $distance\n";
+
+    # For now, only send to stars not previously probed.
+    # In time all local stars will be 'mined out' but we can worry about that later.
+    #
+    my $distance_rs = $schema->resultset('Distance')->search_rs({
+        from_id                 => $centre_star->id,
+        distance                => {'>', $distance},
+    }
+    ,{
+        join        => {to_star => 'probe_visits'},
+        order_by    => 'distance',
+    });
+
+DISTANCE:
+    while (my $distance = $distance_rs->next) {
+        $star = $distance->to_star;
+
+        # For now, ignore any stars we have previously probed. Later on
+        # we will have to check for a date > 30 days ago
+        if ($star->probe_visits->count) {
+            print "Ignoring ".$star->name." we have visited it before\n";
+            next DISTANCE;
+        }
+
+        print "Getting available ships for ".$star->name."\n";
+        my $available_ships     = $space_port->get_available_ships_for({ star_id => $star->id });
+        my @available_probes    = grep {$_->type eq 'probe'} @$available_ships;
+
+        $probe = $available_probes[0];
+        last DISTANCE if $probe;
+    }
+    # Update the database, so we don't send one there again
+    $schema->resultset('ProbeVisit')->create({
+        star_id     => $star->id,
+        on_date     => WWW::LacunaExpanse::API::DateTime->now,
+    });
+
+    print "  ".$probe->id." probe found\n";
+    return ($star,$probe);
+}
 
 1;
