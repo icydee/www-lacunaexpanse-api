@@ -91,6 +91,7 @@ while (my $message = $inbox->next_message) {
                 ($body_db) = $schema->resultset('Body')->search({name => $body});
                 if (! $body_db) {
                     print "ERROR: Cannot find ($body) in the database\n";
+                    push @archive_messages, $message->id;
                 }
             }
 
@@ -150,7 +151,7 @@ while (my $message = $inbox->next_message) {
         }
         else {
             print $message->date." ??? ".$message->subject."\n";
-               push @archive_messages, $message->id;
+#               push @archive_messages, $message->id;
         }
     }
 }

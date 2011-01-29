@@ -2,6 +2,7 @@ package WWW::LacunaExpanse::API::Connection;
 
 use MooseX::Singleton;
 
+use Log::Log4perl;
 use Data::Dump qw(dump);
 use LWP::UserAgent;
 use JSON::RPC::Common::Marshal::HTTP;
@@ -23,6 +24,7 @@ has 'marshal'       => (is => 'ro', lazy_build => 1);
 has 'session_id'    => (is => 'rw');
 has 'debug'         => (is => 'rw', default => 0);
 has 'debug_hits'    => (is => 'rw', default => 0);
+has 'log'           => (is => 'rw', lazy_build => 1);
 
 my $public_key      = 'c200634c-7feb-4001-8d70-d48eb3ff532c';
 
@@ -33,6 +35,14 @@ sub BUILD {
     if (defined($self->{username}) and defined($self->{password})) {
 	$self->call('/empire', 'login', [$self->username, $self->password, $public_key]);
     }
+}
+
+# Build the logger
+sub _build_log {
+    my ($self) = @_;
+
+    my $log = Log::Log4perl->get_logger('WWW::LacunaExpanse::API::Connection');
+    return $log;
 }
 
 # lazy build the User Agent
@@ -53,6 +63,13 @@ sub _build_marshal {
 sub call {
     my ($self, $path, $method, $params) = @_;
 
+    # keep login username and password out of the log file
+    if ($method eq 'login') {
+        $self->log->debug("PATH $path : METHOD $method : params : xxxxxx");
+    }
+    else {
+        $self->log->debug("PATH $path : METHOD $method : params : ", join(' - ', @$params));
+    }
     my $req = $self->marshal->call_to_request(
         JSON::RPC::Common::Procedure::Call->inflate(
             jsonrpc => "2.0",
@@ -63,11 +80,12 @@ sub call {
         uri => URI->new($self->uri.$path),
     );
 
-    if ($self->debug) {
-        print "\n############ request ##################\n";
-        print "request = [".$req->as_string."]\n";
-        print "#######################################\n\n";
-    }
+    $self->log->trace($req->as_string);
+#    if ($self->debug) {
+#        print "\n############ request ##################\n";
+#        print "request = [".$req->as_string."]\n";
+#        print "#######################################\n\n";
+#    }
     if ($self->debug_hits) {
         # Disable buffering
         my $ofh = select STDOUT;
