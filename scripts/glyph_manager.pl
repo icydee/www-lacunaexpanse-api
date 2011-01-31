@@ -35,6 +35,7 @@
 
 use Modern::Perl;
 use FindBin qw($Bin);
+use Log::Log4perl;
 use Data::Dumper;
 use DateTime;
 use List::Util qw(min max);
@@ -49,6 +50,11 @@ use WWW::LacunaExpanse::Agent::ShipBuilder;
 # Load configurations
 
 MAIN: {
+    Log::Log4perl::init("$Bin/../glyph_manager.log4perl.conf");
+
+    my $log = Log::Log4perl->get_logger('MAIN');
+    $log->info('Program start');
+
     my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
     my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyph_manager.yml");
 
@@ -79,12 +85,12 @@ MAIN: {
     my $base_hour       = $glyph_config->{base_hour};
     my $task_hour       = ($base_hour + $current_hour) % 7;
 
-#$task_hour = 0;
+#$task_hour = 5;
 
     my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
     if ( ! @current_tasks ) {
-        print "Nothing to do on this hour\n";
+        $log->info('Nothing to do at this time');
         exit;
     }
 
@@ -104,19 +110,19 @@ MAIN: {
     COLONY:
     for my $colony (sort {$a->name cmp $b->name} @$colonies) {
 
-        print "COLONY ".$colony->name."\n";
+        $log->info('Gathering data for Colony '.$colony->name);
 
-        print "Getting space port\n";
+        $log->info('Getting space port');
         my $space_port = $colony->space_port;
         if ( ! $space_port ) {
-            print "Has no space port!\n";
+            $log->warn('Has no space port!');
             next COLONY;
         }
-        print "Getting ship yards\n";
+        $log->info('Getting ship yards');
         my $ship_yards = $colony->building_type('Shipyard');
-        print "Getting archaeology ministry\n";
+        $log->info('Getting archaeology ministry');
         my $archaeology = $colony->archaeology;
-        print "Getting trade ministry\n";
+        $log->info('Getting trade ministry');
         my $trade_ministry = $colony->trade_ministry;
 
         push @all_ship_yards, @$ship_yards;
@@ -136,11 +142,11 @@ MAIN: {
         my $colony_excavators;
         if ($ships_by_type->{excavator}) {
             $colony_excavators = $ships_by_type->{excavator};
-            print "there are ".scalar @$colony_excavators." excavators on ".$colony->name."\n";
+            $log->debug('There are '.scalar @$colony_excavators.' excavators on '.$colony->name);
             $total_excavators += scalar @$colony_excavators;
         }
         else {
-            print "there are no excavators on ".$colony->name."\n";
+            $log->debug('There are no excavators on '.$colony->name);
         }
 
         my $colony_datum = {
@@ -178,6 +184,7 @@ MAIN: {
             all_archaeology     => \@all_archaeology,
         });
     }
+    $log->info('Program end');
 }
 
 
@@ -188,11 +195,14 @@ MAIN: {
 sub _send_probes {
     my ($args) = @_;
 
+    my $log                 = Log::Log4perl->get_logger('MAIN::_send_probes');
+    $log->info('_send_probes');
+
     my $config              = $args->{config};
     my $launch_colony_name  = $config->{excavator_launch_colony};
     my ($colony)            = grep {$_->name eq $launch_colony_name} @{$args->{colonies}};
 
-    print "LAUNCH COLONY NAME IS '$launch_colony_name'\n";
+    $log->info('Launch colony is '.$launch_colony_name);
     my $space_port          = $colony->space_port;
     my $observatory         = $colony->observatory;
     my $schema              = $args->{schema};
@@ -207,25 +217,26 @@ sub _send_probes {
     # minus the number of travelling probes.
     #
     my $observatory_probes_free = $observatory->max_probes - $observatory->count_probed_stars - scalar @probes_travelling;
-    print "There are $observatory_probes_free slots available\n";
-    print "There are ".scalar(@probes_docked)." docked probes\n";
+
+    $log->debug("There are $observatory_probes_free slots available");
+    $log->debug("There are ".scalar(@probes_docked)." docked probes");
+
     my $max_probes_to_send = min(scalar(@probes_docked), $observatory_probes_free);
     PROBE:
     while ($max_probes_to_send) {
 
         my ($probeable_star, $probe) = _next_star_to_probe($schema, $args->{config}, $space_port, $observatory, $centre_star);
         if ( ! $probeable_star ) {
-            print "Something seriously wrong. Can't find a star to probe\n";
+            $log->error('Something seriously wrong. Cannot find a star to probe');
             last PROBE;
         }
 
-        print "Sending probe ID ".$probe->id." to star ".$probeable_star->name;
         my $arrival_time = $space_port->send_ship($probe->id, {star_id => $probeable_star->id});
+        $log->info('Sending probe ID '.$probe->id.' to star '.$probeable_star->name.' to arrive at '.$arrival_time);
 
         # mark the star as 'pending' the arrival of the probe
         $probeable_star->status(1);
         $probeable_star->update;
-        print " and will arrive at $arrival_time\n";
 
         $max_probes_to_send--;
     }
@@ -237,6 +248,9 @@ sub _send_probes {
 sub _send_excavators {
     my ($args) = @_;
 
+    my $log                 = Log::Log4perl->get_logger('MAIN::_send_excavators');
+    $log->info('_send_excavators');
+
     # Colony to send excavators out from
     my $launch_colony_name  = $args->{config}{excavator_launch_colony};
     my ($colony)            = grep {$_->name eq $launch_colony_name} @{$args->{colonies}};
@@ -244,14 +258,13 @@ sub _send_excavators {
     my $schema              = $args->{schema};
     my $api                 = $args->{api};
 
-    print "Launching excavators from colony $launch_colony_name\n";
-
+    $log->info("Sending excavators out from colony $launch_colony_name");
 
     $observatory->refresh;
     my $probed_star = $observatory->next_probed_star;
 
     if (! $probed_star) {
-        print "There are no more probed stars!\n";
+        $log->warn('There are no more probed stars');
         return;
     }
 
@@ -264,7 +277,7 @@ sub _send_excavators {
 
     my $space_port  = $colony->space_port;
     if ( ! $space_port ) {
-        print "There is no space port!\n";
+        $log->error('There is no space port');
         return;
     }
 
@@ -273,20 +286,20 @@ sub _send_excavators {
     $space_port->refresh;
 
     @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
-    print "Colony ".$colony->name." has ".scalar(@excavators)." docked excavators\n";
 
     if ( ! @excavators) {
-        print "There are no excavators to send\n";
+        $log->warn('There are no excavators to send');
         return;
     }
+    $log->info('Colony '.$colony->name.' has '.scalar(@excavators).' docked excavators');
 
     # Send to a body around the next closest star
 EXCAVATOR:
     while (@excavators && $probed_star) {
-#        print "checking next closest body ".$probed_star->name."\n";
+#         "checking next closest body ".$probed_star->name."\n";
         if ( ! $db_body ) {
             # Mark the star as exhausted, the probe can be abandoned
-            print "Star ".$probed_star->name." has no more unexcavated bodies\n";
+            $log->info('Star '.$probed_star->name.' has no more unexcavated bodies');
             $db_star->status(5);
             $db_star->update;
             $observatory->abandon_probe($probed_star->id);
@@ -303,36 +316,33 @@ EXCAVATOR:
             next EXCAVATOR;
         }
         # If the body is occupied, ignore it
-        if ($db_body->empire_id) {
-            print "Body ".$db_body->name." is occupied, ignore it\n";
+        while ($db_body->empire_id) {
+            $log->warn('Body '.$db_body->name.' is occupied, ignore it');
             $db_body = $db_body_rs->next;
-            if ( ! $db_body ) {
-                next EXCAVATOR;
-            }
+            next EXCAVATOR if not $db_body;
         }
+        $log->debug('Body '.$db_body->name.' is not occupied. empire_id='.$db_body->empire_id);
 
         # Get all excavators that can be sent to this planet
         my @send_excavators = grep {$_->type eq 'excavator'} @{$space_port->get_available_ships_for({ body_id => $db_body->id })}; #<<<1>>>#
 
         if ( ! @send_excavators ) {
-#                @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
-
             if ( ! @excavators) {
                 # No more excavators at this colony
-                print "No more excavators to send from ".$colony->name."\n";
+                $log->info('No more excavators to send from '.$colony->name);
                 return;
             }
-            print "Can't send excavators to ".$db_body->name."\n";
+            $log->warn('Cannot send excavators to '.$db_body->name);
             $db_body = $db_body_rs->next;
             next EXCAVATOR;
         }
 
         my $distance = int(sqrt(($db_body->x - $colony->x)**2 + ($db_body->y - $colony->y)**2));
-        print "Sending Excavator to '".$db_body->name."' a distance of $distance\n";
+        $log->info('Sending exacavator to '.$db_body->name.' a distance of '.$distance);
         my $first_excavator = $send_excavators[0];
         $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
         @excavators = grep {$_->id != $first_excavator->id} @excavators;
-         $space_port->refresh; #<<<2>>>#
+        $space_port->refresh; #<<<2>>>#
         $db_body = $db_body_rs->next;
     }
 }
@@ -343,7 +353,8 @@ EXCAVATOR:
 sub _start_glyph_search {
     my ($args) = @_;
 
-    print "_start_glyph_search, not yet implemented\n";
+    my $log = Log::Log4perl->get_logger('MAIN::_start_glyph_search');
+    $log->error('_start_glyph_search: not yet implemented');
 }
 
     ##########
@@ -362,6 +373,9 @@ sub _start_glyph_search {
 sub _transport_glyphs {
     my ($args) = @_;
 
+    my $log = Log::Log4perl->get_logger('MAIN::_transport_glyphs');
+    $log->info('_transport_glyphs');
+
     my @colony_data             = @{$args->{colony_data}};
     my $config                  = $args->{config};
 
@@ -373,9 +387,8 @@ sub _transport_glyphs {
     for my $colony_datum (@colony_data) {
 
         # Transport glyphs to the glyph store colony
-        print "Checking for glyphs on '".$colony_datum->{colony}->name."'\n";
+        $log->debug('Checking for glyphs on '.$colony_datum->{colony}->name);
         if ($colony_datum->{colony}->name ne $glyph_store_colony) {
-
             ### We need to know how many glyphs there are on this colony at this point
             ###
 
@@ -383,10 +396,10 @@ sub _transport_glyphs {
                 grep {$_->name eq $glyph_transport_name}
                 @{$colony_datum->{ships}{$glyph_transport_type}};
             if ($glyph_ship) {
-                print "ship to transport glyphs     is '".$glyph_ship->id."'\n";
+                $log->debug('Ship to transport glyphs is '.$glyph_ship->id);
             }
             else {
-                print "WARNING: Cannot find a transport for glyphs\n";
+                $log->error('Cannot find a transport for glyphs');
             }
         }
     }
@@ -397,10 +410,13 @@ sub _transport_glyphs {
 sub _transport_excavators {
     my ($args) = @_;
 
+    my $log = Log::Log4perl->get_logger('MAIN::_transport_excavators');
+    $log->info('_transport_excavators');
+
     my @colony_data                 = @{$args->{colony_data}};
     my $config                      = $args->{config};
 
-    my ($excavator_launch_colony) = grep {$_->name eq $config->{excavator_launch_colony}} @{$args->{colonies}};
+    my ($excavator_launch_colony)   = grep {$_->name eq $config->{excavator_launch_colony}} @{$args->{colonies}};
     my $excavator_transport_type    = $config->{excavator_transport_type};
     my $excavator_transport_name    = $config->{excavator_transport_name};
 
@@ -410,16 +426,16 @@ sub _transport_excavators {
 
         next COLONY if ($colony_datum->{colony}->name eq $excavator_launch_colony->name);
 
+        $log->info('Checking for completed excavators on '.$colony_datum->{colony}->name);
         my $trade_ministry = $colony_datum->{trade_ministry};
         if ( ! $trade_ministry ) {
-            print "WARNING: No trade ministry found\n";
+            $log->error('No trade ministry found');
             next COLONY;
         }
 
-        print "Checking for excavators on '".$colony_datum->{colony}->name."'\n";
         my @docked_excavators = grep {$_->task eq 'Docked'} @{$colony_datum->{excavators}};
 
-        print "Has ".scalar(@docked_excavators)." excavators to transport\n";
+        $log->info('Colony has '.scalar(@docked_excavators).' excavators to transport');
         if (@docked_excavators) {
             my @transport_ships =
                 grep {$_->name eq $excavator_transport_name}
@@ -429,7 +445,7 @@ sub _transport_excavators {
             for my $transport_ship (grep {$_->task eq 'Docked'} @transport_ships) {
                 last TRANSPORT if ! @docked_excavators;
 
-                print "ship to transport excavators is '".$transport_ship->id."'\n";
+                $log->info('Ship to transport excavators is '.$transport_ship->id);
                 # How many excavators can the transporter transport?
                 my $capacity = int($transport_ship->hold_size / 50000);
                 if ($capacity) {
@@ -437,18 +453,17 @@ sub _transport_excavators {
                     while ($capacity && scalar @docked_excavators) {
                         my $ship = pop @docked_excavators;
 
-                        print "PUSHING: ".$ship->name."\n";
+                        $log->info('Pushing '.$ship->name);
                         push @items, {type => 'ship', ship_id => $ship->id};
 
                         $capacity--;
                     }
-                    print "Pushing items to colony ".$excavator_launch_colony->name." with ship ".$transport_ship->name."\n";
+                    $log->info('Pushing to colony '.$excavator_launch_colony->name.' with ship '.$transport_ship->name);
                     $trade_ministry->push_items($excavator_launch_colony, \@items, {ship_id => $transport_ship->id});
                 }
                 else {
-                    print "WARNING: The ship ".$transport_ship->name." does not have capacity (".$transport_ship->hold_size.") to transport ships\n";
+                    $log->error('The ship '.$transport_ship->name.' does not have capacity ('.$transport_ship->hold_size.') to transport other ships');
                 }
-
             }
         }
     }
@@ -464,6 +479,8 @@ sub _transport_excavators {
 sub _build_probes {
     my ($args) = @_;
 
+    my $log = Log::Log4perl->get_logger('MAIN::_build_probes');
+    $log->info('_build_probes');
     my $config              = $args->{config};
     my @colony_data         = @{$args->{colony_data}};
     my $launch_colony_name  = $config->{excavator_launch_colony};
@@ -474,19 +491,19 @@ sub _build_probes {
 
 
     my ($colony_datum)      = grep{$_->{colony}->name eq $config->{excavator_launch_colony}} @colony_data;
-    print "Launching Probes from Colony ".$colony->name."\n";
+    $log->info('Launching probes from '.$colony->name);
 
     my $colony_probes       = @{$colony_datum->{ships}{probe}};
-    print "There are currently $colony_probes probes building, docked or travelling\n";
+    $log->info('There are currently '.$colony_probes.' probes building, docked or travelling');
 
     my $to_build            = $config->{probe_count} - $colony_probes;
     my $max_build_level     = $config->{probe_max_build_level};
 
     if ($to_build <= 0) {
-        print "We have enough probes, no need to build any more just yet\n";
+        $log->info('We have enough probes, no need to build more just yet');
         return;
     }
-    print "We need to build a further $to_build probes\n";
+    $log->info('We need to build a further '.$to_build.' probes');
 
     my $cant_build_at;
     my $build_level = 1;
@@ -504,7 +521,7 @@ sub _build_probes {
             if ($ships_building < $build_level) {
                 # Build a probe here
 
-                print "Building probe at shipyard ".$shipyard->colony->name." ".$shipyard->x."/".$shipyard->y." ships_building = $ships_building \n";
+                $log->info('Building '.$ships_building.' probes at shipyard '.$shipyard->colony->name.' '.$shipyard->x.'/'.$shipyard->y);
 
                 if ( ! $shipyard->build_ship('probe') ) {
                     # We can't build at this shipyard any more
@@ -541,6 +558,9 @@ sub _build_probes {
 sub _build_excavators {
     my ($args) = @_;
 
+    my $log = Log::Log4perl->get_logger('MAIN::_build_excavators');
+    $log->info('_build_excavators');
+
     my $total_excavators    = $args->{total_excavators};
     my $config              = $args->{config};
     my @all_ship_yards      = @{$args->{all_ship_yards}};
@@ -548,7 +568,7 @@ sub _build_excavators {
     my $shipyard_max_builds = $config->{shipyard_max_builds};
     my $to_build            = $config->{excavator_count} - $total_excavators;
 
-    print "We need to produce a further $to_build excavators\n";
+    $log->info('We need to produce a further '.$to_build.' excavators');
 
     # Find all shipyards able to build excavators
     my @shipyards_buildable;
@@ -564,7 +584,7 @@ sub _build_excavators {
     # Order all shipyards by the build queue size (increasing) which are below the max build queue size
     my @shipyards_sorted;
     for my $shipyard (sort {$a->number_of_ships_building <=> $b->number_of_ships_building} @shipyards_buildable) {
-        print "Shipyard on colony ".$shipyard->colony->name." plot ".$shipyard->x."/".$shipyard->y." has ".$shipyard->number_of_ships_building." ships building\n";
+        $log->debug("Shipyard on colony ".$shipyard->colony->name." plot ".$shipyard->x."/".$shipyard->y." has ".$shipyard->number_of_ships_building." ships building");
         if ($shipyard->number_of_ships_building < $shipyard_max_builds) {
             push @shipyards_sorted, $shipyard;
         }
@@ -575,6 +595,7 @@ sub _build_excavators {
     # 0,0,0,1,2,2,5 for the number of ships building
     # we need to make several passes through the data so the ships are built in the lowest queues
     # taking into account those shipyards which can't build any more (due to lack of space or resources)
+    # We don't bother taking into account of the build times of all the shipyards.
     #
     my $min_free = 0;
     my $cant_build_at;                  # hash of shipyards we can't build at
@@ -591,13 +612,13 @@ sub _build_excavators {
             my $ships_building = $shipyard->number_of_ships_building;
             if ($min_free < $ships_building) {
                 # start again at the beginning of the shipyard list
-                print "Start building at the first shipyard again\n";
+                $log->debug('Start building at the first shipyard again');
                 $min_free++;
                 next EXCAVATOR;
             }
 
             # then build a ship
-            print "Building ship at shipyard ".$shipyard->colony->name." ".$shipyard->x."/".$shipyard->y." min_free = $min_free ships_building = $ships_building \n";
+            $log->debug("Building ship at shipyard ".$shipyard->colony->name." ".$shipyard->x."/".$shipyard->y." min_free = $min_free ships_building = $ships_building");
             if ( ! $shipyard->build_ship('excavator') ) {
                 # We can't build at this shipyard any more
                 $shipyard->refresh;
@@ -612,10 +633,10 @@ sub _build_excavators {
         }
 
         unless ( $at_least_one_built ) {
-            print "No more shipyards available\n";
+            $log->warn('No more shipyards available');
             last EXCAVATOR;
         }
-        print "Increment min_free\n";
+        $log->info('Increment min_free');
         $min_free++;
     }
 }
@@ -625,18 +646,21 @@ sub _build_excavators {
 sub _save_probe_data {
     my ($schema, $api, $probed_star) = @_;
 
+    my $log = Log::Log4perl->get_logger('MAIN::_save_probe_data');
+    $log->info('_save_probe_data');
+
     # See if we have previously probed this star
     my $db_star = $schema->resultset('Star')->find($probed_star->id);
 
     if ($db_star->scan_date) {
-        print "Previously scanned star system [".$db_star->name."]. Don't scan again\n";
+        $log->debug("Previously scanned star system [".$db_star->name."]. Don't scan again");
         if ($db_star->status == 1) {
             $db_star->status(3);
             $db_star->update;
         }
     }
     else {
-        print "Saving scanned data for star system [".$db_star->name."]\n";
+        $log->info("Saving scanned data for star system [".$db_star->name."]");
         for my $body (@{$probed_star->bodies}) {
             my $db_body = $schema->resultset('Body')->find($body->id);
             if ( $db_body ) {
@@ -690,6 +714,9 @@ sub _next_star_to_probe {
 
     my ($star, $probe);
 
+    my $log = Log::Log4perl->get_logger('MAIN::_next_star_to_probe');
+    $log->info('_next_star_to_probe');
+
     # Locate a star at a random distance
 
     my $max_distance = $config->{max_distance};
@@ -701,7 +728,7 @@ sub _next_star_to_probe {
 
     my $distance = int(rand($max_distance - $min_distance)) + $min_distance;
 
-    print "Probing a distance of $distance\n";
+    $log->debug("Probing at a distance of $distance");
 
     # For now, only send to stars not previously probed.
     # In time all local stars will be 'mined out' but we can worry about that later.
@@ -722,11 +749,11 @@ DISTANCE:
         # For now, ignore any stars we have previously probed. Later on
         # we will have to check for a date > 30 days ago
         if ($star->probe_visits->count) {
-            print "Ignoring ".$star->name." we have visited it before\n";
+            $log->info("Ignoring ".$star->name." we have visited it before");
             next DISTANCE;
         }
 
-        print "Getting available ships for ".$star->name."\n";
+        $log->debug("Getting available ships for ".$star->name);
         my $available_ships     = $space_port->get_available_ships_for({ star_id => $star->id });
         my @available_probes    = grep {$_->type eq 'probe'} @$available_ships;
 
@@ -739,7 +766,7 @@ DISTANCE:
         on_date     => WWW::LacunaExpanse::API::DateTime->now,
     });
 
-    print "  ".$probe->id." probe found\n";
+    $log->debug("Probe ".$probe->id." found");
     return ($star,$probe);
 }
 
