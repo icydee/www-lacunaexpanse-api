@@ -51,11 +51,11 @@ sub refresh {
 
 
 sub get_buildable {
-    my ($self) = @_;
+    my ($self, $tag) = @_;
 
     $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'get_buildable',[
-        $self->connection->session_id, $self->id]);
+        $self->connection->session_id, $self->id, $tag ? $tag : ()]);
     $self->connection->debug(0);
 
     my $body = $result->{result};

@@ -1,6 +1,8 @@
 package WWW::LacunaExpanse::API::Role::Connection;
 
 use Moose::Role;
+use WWW::LacunaExpanse::API::Connection;
+use WWW::LacunaExpanse::API::DateTime;
 
 has 'connection'        => (is => 'ro', lazy_build => 1);
 
