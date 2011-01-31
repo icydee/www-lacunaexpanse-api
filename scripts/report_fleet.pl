@@ -14,11 +14,9 @@ use WWW::LacunaExpanse::API::DateTime;
 use WWW::LacunaExpanse::Agent::ShipBuilder;
 
 my $config;
-my $format;
 
 GetOptions(
     'config|cfgpath|c=s' => \$config,
-    'format|f=s'         => \$format,
 ) or die usage();
 
 # cross platform support for home directories
@@ -30,12 +28,6 @@ if ($config =~ m/\~/) {
 $config ||= dir($Bin, '..', 'myaccount.yml');
 unless (-e $config and -f $config) {
     print "Config file specified does not exist! $config\n";
-    usage();
-}
-
-$format ||= 'txt';
-unless ($format =~ m/^(?:txt|csv)$/) {
-    print "Unsupported format specified: $format\n";
     usage();
 }
 
@@ -108,7 +100,7 @@ for my $colony (sort keys %fleet_of) {
           ,"\n");
 }
 print('|| '
-      ,join(' || ',"[$empire]", $dt, $do, map { exists $ship_of{$_} ? $ship_of{$_} : 0 } sort(keys %fleet_type))
+      ,join(' || ',"$empire", $dt, $do, map { exists $ship_of{$_} ? $ship_of{$_} : 0 } sort(keys %fleet_type))
       ,' ||'
       ,"\n");
 
@@ -119,13 +111,18 @@ sub usage {
     $prog =~ s/.*(?:\\|\/)//;
     print <<"EOF";
 
-usage: $prog --config=~/myaccount.yml [--format=csv]
+usage: $prog --config=~/myaccount.yml
 
-Creates a fleet summary report
+Creates a fleet summary report in trac wiki format
 
 Options:
     --config or -c    required    location of YAML config file
-    --format or -f    optional    output format (default: txt)
+
+Example Contents of ~/myaccount.yml
+---
+username: empire_name
+password: empire_password
+uri: https://us1.lacunaexpanse.com
 
 EOF
     exit;
