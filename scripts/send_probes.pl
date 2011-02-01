@@ -81,8 +81,8 @@ if ($distance_count != $star_count) {
 ### Send probes out to new stars                                                 ###
 ####################################################################################
 
-my @probes_docked       = grep {$_->task eq 'Docked'}       $space_port->all_ships('probe');
-my @probes_travelling   = grep {$_->task eq 'Travelling'}   $space_port->all_ships('probe');
+my @probes_docked       = $space_port->all_ships('probe', 'Docked');
+my @probes_travelling   = $space_port->all_ships('probe', 'Travelling');
 
 # Max number of probes we can send is the observatory max_probes minus observatory probed_stars
 # minus the number of travelling probes.

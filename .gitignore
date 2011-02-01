@@ -10,4 +10,5 @@ myaccount.yml
 *.yml
 lacuna.db*
 log
+*.conf
 

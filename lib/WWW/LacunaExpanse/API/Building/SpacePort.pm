@@ -253,17 +253,20 @@ sub get_available_ships_for {
 sub send_ship {
     my ($self, $ship_id, $args) = @_;
 
-    $self->connection->debug(0);
-    my $result = $self->connection->call($self->url, 'send_ship',[
-        $self->connection->session_id, $ship_id, $args]);
-    $self->connection->debug(0);
+    my $result;
+    eval {
+        $result = $self->connection->call($self->url, 'send_ship',[
+            $self->connection->session_id, $ship_id, $args]);
+    };
+    if ($@) {
+        return;
+    }
 
     # Should return a status block here.
     # For now just return the date it arrives.
     my $body = $result->{result}{ship};
     my $arrival_date = WWW::LacunaExpanse::API::DateTime->from_lacuna_string($body->{date_arrives});
     return $arrival_date;
-
 }
 
 
