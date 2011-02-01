@@ -3,6 +3,7 @@ package WWW::LacunaExpanse::API::Building::ArchaeologyMinistry;
 use Moose;
 use Carp;
 use Data::Dumper;
+use WWW::LacunaExpanse::API::Ore;
 use WWW::LacunaExpanse::API::Glyph;
 
 extends 'WWW::LacunaExpanse::API::Building::Generic';
@@ -94,11 +95,17 @@ sub get_glyph_summary {
 sub search_for_glyph {
     my ($self, $ore_type) = @_;
 
-    my $result = $self->connection->call($self->url, 'search_for_glyph',[
-	    $self->connection->session_id, $self->id, $ore_type
-    ]);
+    eval {
+        my $result = $self->connection->call($self->url, 'search_for_glyph',[
+	        $self->connection->session_id, $self->id, $ore_type
+        ]);
+    };
+    if ($@) {
+        print STDERR $@;
+        return;
+    }
 
-    return $result->{building};
+    return 1;
 }
 
 # Get all ores available for processing
@@ -106,11 +113,21 @@ sub search_for_glyph {
 sub get_ores_available_for_processing {
     my ($self) = @_;
 
+    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'get_ores_available_for_processing', [
 	    $self->connection->session_id, $self->id
     ]);
+    $self->connection->debug(0);
 
-    return $result->{ore};
+    my @ores;
+    for my $ore_type (%{$result->{result}{ore}}) {
+        my $ore = WWW::LacunaExpanse::API::Ore->new({
+            type        => $ore_type,
+            quantity    => $result->{result}{ore}{$ore_type},
+        });
+        push @ores, $ore;
+    }
+    return \@ores;
 }
 
 # Subsidize a search with essentia

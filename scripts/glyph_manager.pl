@@ -82,6 +82,7 @@ MAIN: {
     my $dsn     = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
     my $schema  = WWW::LacunaExpanse::Schema->connect($dsn);
 
+    # Tasks to do on the hour (units) and the order to do them in (decimal)
     my $tasks = {
         1.0     => \&_send_excavators,
         1.1     => \&_build_probes,
@@ -99,7 +100,7 @@ MAIN: {
     my $base_hour       = $glyph_config->{base_hour};
     my $task_hour       = ($base_hour + $current_hour) % 7;
 
-#$task_hour = 5;
+#$task_hour = 1;
 
     my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
@@ -141,8 +142,8 @@ MAIN: {
         my $trade_ministry = $colony->trade_ministry;
 
         push @all_ship_yards, @$ship_yards;
-        push @all_space_ports, $space_port;
-        push @all_archaeology, $archaeology;
+        push @all_space_ports, $space_port if $space_port;
+        push @all_archaeology, $archaeology if $archaeology;
 
         my $colony_glyph_summary = {};
 
@@ -353,12 +354,92 @@ EXCAVATOR:
 
 
 # start a glyph search
+# The current algorithm tries to maximise the number of Halls
+# if you want it to do anything else please do so via the YAML configuration
 #
 sub _start_glyph_search {
     my ($args) = @_;
 
     my $log = Log::Log4perl->get_logger('MAIN::_start_glyph_search');
-    $log->error('_start_glyph_search: not yet implemented');
+
+    my $config          = $args->{config};
+    my $algorithm       = $config->{glyph_search_algorithm};
+    my @colony_data     = @{$args->{colony_data}};
+    my @all_archaeology = @{$args->{all_archaeology}};
+
+    # Get the total of all glyphs on all colonies
+    my $combined_glyphs;
+    for my $glyph_name (WWW::LacunaExpanse::API::Ores->ore_names) {
+        $combined_glyphs->{$glyph_name} = 0;
+    }
+    for my $colony_datum (@colony_data) {
+        my $colony_glyphs = $colony_datum->{glyphs};
+
+        for my $glyph_name (keys %$colony_glyphs) {
+            if ($colony_glyphs->{$glyph_name}) {
+                $combined_glyphs->{$glyph_name} += $colony_glyphs->{$glyph_name};
+            }
+        }
+    }
+    # list of glyph names, in the order they are to be searched for
+    my @glyph_sort_order;
+
+    if ($algorithm eq 'maximise_halls') {
+        my $hall_def = {
+            a   => [qw(goethite halite gypsum trona)],
+            b   => [qw(gold anthracite uraninite bauxite)],
+            c   => [qw(kerogen methane sulfur zircon)],
+            d   => [qw(monazite fluorite beryl magnetite)],
+            e   => [qw(rutile chromite chalcopyrite galena)],
+        };
+
+        my $glyph_weight;
+
+        for my $glyph (keys %$combined_glyphs) {
+            $glyph_weight->{$glyph} = 0;
+        }
+
+        for my $hall (keys %$hall_def) {
+            my @g_array = @{$hall_def->{$hall}};
+            # get the min and max values
+            my $max_glyphs = max(map {$combined_glyphs->{$_}} @g_array);
+            for my $g (@g_array) {
+                $glyph_weight->{$g} = $max_glyphs - $combined_glyphs->{$g};
+            }
+        }
+        @glyph_sort_order = sort {$glyph_weight->{$b} <=> $glyph_weight->{$a}} keys %$combined_glyphs;
+    }
+    else {
+        $log->error("Glyph search algorithm '$algorithm' is not implemented");
+        return;
+    }
+    $log->info('GLYPH SORT ORDER '.join('-', @glyph_sort_order));
+
+    # Now go through all archaeology ministries and start a search
+ARCHAEOLOGY:
+    for my $archaeology (@all_archaeology) {
+        $log->info("Searching archaeology ministry ".$archaeology->x.":".$archaeology->y." on colony ".$archaeology->colony->name);
+        my @ores_for_processing = @{$archaeology->get_ores_available_for_processing};
+        $log->info("Ores for processing = ".join('-', map {$_->type} @ores_for_processing));
+        my $done_search = 0;
+        for my $ore_type (@glyph_sort_order) {
+            my $do_search = grep {$ore_type eq $_->type} @ores_for_processing;
+
+            if ($do_search) {
+                $done_search = 1;
+                if ($archaeology->search_for_glyph($ore_type)) {
+                    $log->info("Searching for glyph type '$ore_type' at colony ".$archaeology->colony->name);
+                }
+                else {
+                    $log->warn("Already searching for glyphs at colony ".$archaeology->colony->name);
+                }
+                next ARCHAEOLOGY;
+            }
+        }
+        if (! $done_search) {
+            $log->warn('No ores to search at archaeology on colony '.$archaeology->colony->name);
+        }
+    }
 }
 
     ##########
