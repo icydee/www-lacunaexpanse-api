@@ -35,6 +35,8 @@
 # TODO:
 #
 # Put in a timeout on API calls
+# MUST be able to exclude colonies (such as exp and spw) from building excavators
+# Update time of probe_visit at the point the probe is destroyed to more closely match the excavation time
 # Use the same method for 'build_probes' as we do for 'build_excavators' i.e. don't call  get_buildable and view_build_queue for each probe
 # Use the probe_visit table to exclude star systems that have been visited in the past 35 days
 # Create a probe_visit entry when the probe is abandoned, not when the probe is sent out
@@ -43,7 +45,10 @@
 # Add routine to check email for excavator result messages, store in database and put messages into archive
 # Add diagnostic to show the number of API hits taken during the running of the script and the number remaining for the day
 # Implement a shut-down of the script if we don't have enough API calls left for the day.
-#
+# When building excavators, don't do prior calls to 'get_buildable' just build and catch the exception
+# When there are no more probes to build, don't call get_buildable for all shipyards
+# Add an auto-login for when the server resets or we lose our session, automatically re-do the last command
+# Output the number of API calls made by the scripts
 # DONE
 #
 # When there are no more excavators to build, don't call get_buildable for all shipyards!
@@ -100,12 +105,12 @@ MAIN: {
     my $base_hour       = $glyph_config->{base_hour};
     my $task_hour       = ($base_hour + $current_hour) % 7;
 
-#$task_hour = 1;
+#$task_hour = 5;
 
     my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
     if ( ! @current_tasks ) {
-        $log->info('Nothing to do at this time');
+        $log->info("Nothing to do on task hour $task_hour");
         exit;
     }
 
@@ -686,15 +691,16 @@ sub _build_excavators {
     # ##### NOTE ##### Could we do away with the 'buildable' and just attempt to build and catch the exception?
     ################## That would save us one API call per shipyard
 
-    my @shipyards_buildable;
-    for my $shipyard (@all_ship_yards) {
-        my ($can_build_excavator) = grep {$_->type eq 'excavator' && $_->can_build} @{$shipyard->buildable};
-        if ($can_build_excavator) {
-            if ($shipyard->docks_available) {
-                push @shipyards_buildable, $shipyard;
-            }
-        }
-    }
+    my @shipyards_buildable = (@all_ship_yards);
+
+#    for my $shipyard (@all_ship_yards) {
+#        my ($can_build_excavator) = grep {$_->type eq 'excavator' && $_->can_build} @{$shipyard->buildable};
+#        if ($can_build_excavator) {
+#            if ($shipyard->docks_available) {
+#                push @shipyards_buildable, $shipyard;
+#            }
+#        }
+#    }
 
     # Order all shipyards by the build queue size (increasing) which are below the max build queue size
     my @shipyards_sorted;
@@ -855,6 +861,7 @@ sub _next_star_to_probe {
     }
     ,{
         join        => {to_star => 'probe_visits'},
+#        prefetch    => {to_star => 'probe_visits'},
         order_by    => 'distance',
     });
 
