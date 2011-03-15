@@ -64,11 +64,12 @@ sub get_glyphs {
 # Assemble glyphs
 #
 sub assemble_glyphs {
-    my ($self, $ids) = @_;
+    my ($self, $glyphs) = @_;
 
+    my @glyph_ids = map {$_->id} @$glyphs;
     my $result = $self->connection->call(
 	$self->url, 'assemble_glyphs', [
-	    $self->connection->session_id, $self->id, $ids
+	    $self->connection->session_id, $self->id, \@glyph_ids
 	]);
 
     return $result->{item_name};

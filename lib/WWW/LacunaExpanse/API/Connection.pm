@@ -113,7 +113,7 @@ sub call {
 	and exists $deflated->{result}{session_id}) {
         $self->session_id($deflated->{result}{session_id});
     }
-
+    sleep 2;
     return $deflated;
 
 

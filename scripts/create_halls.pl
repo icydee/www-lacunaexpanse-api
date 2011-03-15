@@ -24,13 +24,13 @@ MAIN: {
     my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
     my $config          = YAML::Any::LoadFile("$Bin/../create_halls.yml");
 
-#    my $api = WWW::LacunaExpanse::API->new({
-#        uri         => $my_account->{uri},
-#        username    => $my_account->{username},
-#        password    => $my_account->{password},
-#    });
-#
-#    my $colonies = $api->my_empire->colonies;
+    my $api = WWW::LacunaExpanse::API->new({
+        uri         => $my_account->{uri},
+        username    => $my_account->{username},
+        password    => $my_account->{password},
+    });
+
+    my $colonies = $api->my_empire->colonies;
 
     my $assemble_on = $config->{assemble_on};
 
@@ -60,24 +60,23 @@ COLONY:
         for my $hall (sort keys %$hall_def) {
             my @types;
             for my $i (0..3) {
-                $types[$i] = [grep {$_->name eq $hall->[$i]} @$glyphs];
+                my @same_glyphs = grep {$_->type eq $hall_def->{$hall}[$i]} @$glyphs;
+                $types[$i] = \@same_glyphs;
             }
-            while ($types[0] && $types[1] && $types[2] && $types[3]) {
-                my $g0 = shift @{$types[0]->[0]};
-                my $g1 = shift @{$types[1]->[0]};
-                my $g2 = shift @{$types[2]->[0]};
-                my $g3 = shift @{$types[3]->[0]};
 
-                print "Assemble ".
-                    join(" ", map {$_->id."-".$_->name} $g0,$g1,$g2,$g3).
-                    "\n";
+            while (@{$types[0]} && @{$types[1]} && @{$types[2]} && @{$types[3]}) {
+                my $g0 = shift @{$types[0]};
+                my $g1 = shift @{$types[1]};
+                my $g2 = shift @{$types[2]};
+                my $g3 = shift @{$types[3]};
 
-#                $archaeology->assemble_glyphs([
-#                    shift(@{$types[0]->[0]}),
-#                    shift(@{$types[1]->[0]}),
-#                    shift(@{$types[2]->[0]}),
-#                    shift(@{$types[3]->[0]}),
-#                ]);
+                print "Assemble [".$g0->type."-".$g0->id."][".$g1->type."][".$g2->type."][".$g3->type."]\n";
+#exit;
+#                print "Assemble ".
+#                    join(" ", map {$_->id."-".$_->type} $g0,$g1,$g2,$g3).
+#                    "\n";
+
+                $archaeology->assemble_glyphs([$g0,$g1,$g2,$g3]);
             }
         }
     }

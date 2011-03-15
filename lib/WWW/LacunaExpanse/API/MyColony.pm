@@ -172,12 +172,22 @@ sub planetary_command_center {
     return $pcc;
 }
 
+# Return the waste henge
+#
+sub junk_henge_sculpture {
+    my ($self) = @_;
+
+    my ($junk_henge) = grep {$_->name eq 'Junk Henge Sculpture'} @{$self->buildings};
+    return $junk_henge;
+}
+
 # Return all buildings of a particular type
 #
 sub building_type {
     my ($self, $building_type) = @_;
 
     my @buildings = grep {$_->name eq $building_type} @{$self->buildings};
+
     return \@buildings;
 }
 

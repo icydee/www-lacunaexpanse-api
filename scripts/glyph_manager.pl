@@ -89,13 +89,13 @@ MAIN: {
 
     # Tasks to do on the hour (units) and the order to do them in (decimal)
     my $tasks = {
-        1.0     => \&_send_excavators,
-        1.1     => \&_build_probes,
-        1.3     => \&_start_glyph_search,
-        1.4     => \&_build_excavators,
-        1.5     => \&_transport_glyphs,
-        5.0     => \&_transport_excavators,
-        5.1     => \&_send_probes,
+        3.0     => \&_send_excavators,
+        3.1     => \&_build_probes,
+        3.3     => \&_start_glyph_search,
+        3.4     => \&_build_excavators,
+        3.5     => \&_transport_glyphs,
+        0.0     => \&_transport_excavators,
+        0.1     => \&_send_probes,
     };
 
     # Calculate tasks
@@ -105,7 +105,7 @@ MAIN: {
     my $base_hour       = $glyph_config->{base_hour};
     my $task_hour       = ($base_hour + $current_hour) % 7;
 
-#$task_hour = 5;
+$task_hour = 3;
 
     my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
@@ -598,9 +598,8 @@ sub _build_probes {
     # Get all ship-yards at this colony
     my @ship_yards          = @{$colony->building_type('Shipyard')};
 
-
     my ($colony_datum)      = grep{$_->{colony}->name eq $config->{excavator_launch_colony}} @colony_data;
-    $log->info('Launching probes from '.$colony->name);
+    $log->info('Building probes at '.$colony->name);
 
     my $colony_probes       = @{$colony_datum->{ships}{probe}};
     $log->info('There are currently '.$colony_probes.' probes building, docked or travelling');

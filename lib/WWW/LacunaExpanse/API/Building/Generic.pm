@@ -54,6 +54,20 @@ print "### calling generic update ###\n";
     $self->_repair_costs('TBD');
 }
 
+# Demolish the building
+#
+sub demolish {
+    my ($self) = @_;
+
+
+}
+
+# Build a building
+#
+sub build {
+}
+
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 1;
