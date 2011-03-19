@@ -8,7 +8,6 @@ use WWW::LacunaExpanse::API::DateTime;
 extends 'WWW::LacunaExpanse::API::Building::Generic';
 
 # Attributes
-has 'page_number'       => (is => 'rw', default => 1);
 has 'index'             => (is => 'rw', default => 0);
 
 my @simple_strings_1    = qw(max_ships docks_available);
@@ -47,8 +46,6 @@ sub reset_ship {
     my ($self) = @_;
 
     $self->index(0);
-    $self->page_number(1);
-    $self->view_all_ships;
 }
 
 # Return the next Ship in the List
@@ -56,16 +53,11 @@ sub reset_ship {
 sub next_ship {
     my ($self) = @_;
 
-    if ($self->index >= $self->number_of_ships) {
+    if ($self->index >= $self->count_ships) {
         return;
     }
 
-    my $page_number = int($self->index / 25) + 1;
-    if ($page_number != $self->page_number) {
-        $self->page_number($page_number);
-        $self->view_all_ships;
-    }
-    my $ship = $self->ships->[$self->index % 25];
+    my $ship = $self->ships->[$self->index];
     $self->index($self->index + 1);
     return $ship;
 }
@@ -119,7 +111,7 @@ sub all_ships_by_type {
 sub count_ships {
     my ($self) = @_;
 
-    return $self->number_of_ships;
+    return scalar @{$self->ships};
 }
 
 # Refresh the object from the Server
@@ -127,11 +119,9 @@ sub count_ships {
 sub view_all_ships {
     my ($self) = @_;
 
-    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'view_all_ships',[
-        $self->connection->session_id, $self->id, $self->page_number]);
-
-    $self->connection->debug(0);
+        $self->connection->session_id, $self->id, {no_paging => 1},
+    ]);
 
     $result = $result->{result};
 
@@ -166,13 +156,6 @@ sub view_all_ships {
 }
 
 
-sub total_pages {
-    my ($self) = @_;
-
-    return int($self->number_of_ships / 25);
-}
-
-
 # Refresh the object from the Server
 #
 sub refresh {
@@ -186,10 +169,8 @@ sub refresh {
 sub get_summary {
     my ($self) = @_;
 
-    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'view',[
         $self->connection->session_id, $self->id]);
-    $self->connection->debug(0);
 
     my $body = $result->{result};
 
@@ -221,10 +202,8 @@ sub docked_ships {
 sub get_available_ships_for {
     my ($self, $args) = @_;
 
-    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'get_ships_for',[
         $self->connection->session_id, $self->body_id, $args]);
-    $self->connection->debug(0);
 
     my @ships;
     my $body = $result->{result}{available};

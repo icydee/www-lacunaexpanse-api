@@ -2,210 +2,33 @@
 
 # Manage Glyphs
 #
-# Gather information about all colonies.
-#   All space-ports
-#   All ship-yards
-#   All archaeology-ministries
-#   The number of glyphs on each colony
-#   The number and type of each ship on each colony
-#
-# Ensure there are enough excavators in the Empire (set in the config)
-# If we need to produce excavators set ship-yards into production
-# keeping the number of ships in each ship-yard to a minimum (ideally 1)
-#
-# If there are docked excavators on any colony planets transport them to
-# the gas giant where the massive space-ports are.
-#
-# Ensure there are enough probes on the Gas Giant, if not build them
-#
-# If there are docked probes, send them out to random stars
-#
-# If there are docked excavators on the GG send them out
-#
-# Trade push any glyphs on colonies to the home world
-#
-# Check the glyph trades on the trade ministry.
-#   Send out an SMS for any especially low glyph costs
-#
-# Check the glyph trades on the Subspace Transporter
-#   Remove individual glyph trades put up by others at a lower price
-#   Add individual glyph trades that are not on the SST at a premium price
-#   Add glyph packs subject to a minimum number of glyphs in stock.
-#
-# TODO:
-#
-# Put in a timeout on API calls
-# MUST be able to exclude colonies (such as exp and spw) from building excavators
-# Update time of probe_visit at the point the probe is destroyed to more closely match the excavation time
-# Use the same method for 'build_probes' as we do for 'build_excavators' i.e. don't call  get_buildable and view_build_queue for each probe
-# Use the probe_visit table to exclude star systems that have been visited in the past 35 days
-# Create a probe_visit entry when the probe is abandoned, not when the probe is sent out
-# After determining 'launch colony is xyz' why do we call view_all_ships twice? get it from colony_data
-# Implement start_glyph_search for glyphs that we have the least of at each archaeology ministry
-# Add routine to check email for excavator result messages, store in database and put messages into archive
-# Add diagnostic to show the number of API hits taken during the running of the script and the number remaining for the day
-# Implement a shut-down of the script if we don't have enough API calls left for the day.
-# When building excavators, don't do prior calls to 'get_buildable' just build and catch the exception
-# When there are no more probes to build, don't call get_buildable for all shipyards
-# Add an auto-login for when the server resets or we lose our session, automatically re-do the last command
-# Output the number of API calls made by the scripts
-# DONE
-#
-# When there are no more excavators to build, don't call get_buildable for all shipyards!
 use Modern::Perl;
 use FindBin qw($Bin);
+use FindBin::lib;
+
 use Log::Log4perl;
 use Data::Dumper;
 use DateTime;
 use List::Util qw(min max);
 use YAML::Any;
 
-use lib "$Bin/../lib";
 use WWW::LacunaExpanse::API;
 use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
-use WWW::LacunaExpanse::Agent::ShipBuilder;
 
 # Load configurations
 
 MAIN: {
-    Log::Log4perl::init("$Bin/../glyph_manager.log4perl.conf");
+    Log::Log4perl::init("$Bin/../glyphs.log4perl.conf");
 
     my $log = Log::Log4perl->get_logger('MAIN');
     $log->info('Program start');
 
     my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
-    my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyph_manager.yml");
+    my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyphs.yml");
 
-    my $api = WWW::LacunaExpanse::API->new({
-        uri         => $my_account->{uri},
-        username    => $my_account->{username},
-        password    => $my_account->{password},
-        debug_hits  => $my_account->{debug_hits},
-    });
+    print Dumper($glyph_config);
 
-    my $dsn     = "dbi:SQLite:dbname=$Bin/".$my_account->{db_file};
-    my $schema  = WWW::LacunaExpanse::Schema->connect($dsn);
-
-    # Tasks to do on the hour (units) and the order to do them in (decimal)
-    my $tasks = {
-        3.0     => \&_send_excavators,
-        3.1     => \&_build_probes,
-        3.3     => \&_start_glyph_search,
-        3.4     => \&_build_excavators,
-        3.5     => \&_transport_glyphs,
-        0.0     => \&_transport_excavators,
-        0.1     => \&_send_probes,
-    };
-
-    # Calculate tasks
-    my $now             = DateTime->now;
-    my $current_day     = $now->dow - 1;            # 0 = Monday
-    my $current_hour    = $current_day * 24 + $now->hour;
-    my $base_hour       = $glyph_config->{base_hour};
-    my $task_hour       = ($base_hour + $current_hour) % 7;
-
-#$task_hour = 3;
-
-    my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
-
-    if ( ! @current_tasks ) {
-        $log->info("Nothing to do on task hour $task_hour");
-        exit;
-    }
-
-    ############
-    # Gather as much information up-from about the empire so as not to
-    # repeat it in the various sections later
-    ############
-
-    my $colonies = $api->my_empire->colonies;
-
-    my @colony_data;
-    my $total_excavators = 0;
-    my @all_ship_yards;
-    my @all_space_ports;
-    my @all_archaeology;
-
-    COLONY:
-    for my $colony (sort {$a->name cmp $b->name} @$colonies) {
-
-#next COLONY if $colony->name ne 'icydee exp';
-        $log->info('Gathering data for Colony '.$colony->name);
-
-        $log->info('Getting space port');
-        my $space_port = $colony->space_port;
-        if ( ! $space_port ) {
-            $log->warn('Has no space port!');
-            next COLONY;
-        }
-        $log->info('Getting ship yards');
-        my $ship_yards = $colony->building_type('Shipyard');
-        $log->info('Getting archaeology ministry');
-        my $archaeology = $colony->archaeology;
-        $log->info('Getting trade ministry');
-        my $trade_ministry = $colony->trade_ministry;
-
-        push @all_ship_yards, @$ship_yards;
-        push @all_space_ports, $space_port if $space_port;
-        push @all_archaeology, $archaeology if $archaeology;
-
-        my $colony_glyph_summary = {};
-
-        if ($archaeology) {
-            # Get all the glyphs held on this colony
-            $colony_glyph_summary = $archaeology->get_glyph_summary;
-        }
-
-        # Get all the ships held on this colony by type
-        my $ships_by_type = $space_port->all_ships_by_type;
-
-        my $colony_excavators;
-        if ($ships_by_type->{excavator}) {
-            $colony_excavators = $ships_by_type->{excavator};
-            $log->debug('There are '.scalar @$colony_excavators.' excavators on '.$colony->name);
-            $total_excavators += scalar @$colony_excavators;
-        }
-        else {
-            $log->debug('There are no excavators on '.$colony->name);
-        }
-
-        my $colony_datum = {
-            api             => $api,
-            colony          => $colony,
-            space_port      => $space_port,
-            trade_ministry  => $trade_ministry,
-            ship_yards      => $ship_yards,
-            archaeology     => $archaeology,
-            glyphs          => $colony_glyph_summary,
-            ships           => $ships_by_type,
-            excavators      => $colony_excavators,
-        };
-
-        push @colony_data, $colony_datum;
-    }
-
-
-    ##########
-    # Do all the tasks due on this hour
-    ##########
-
-
-    for my $key (@current_tasks) {
-
-        &{$tasks->{$key}}({
-            api                 => $api,
-            schema              => $schema,
-            config              => $glyph_config,
-            colonies            => $colonies,
-            colony_data         => \@colony_data,
-            total_excavators    => $total_excavators,
-            all_ship_yards      => \@all_ship_yards,
-            all_space_ports     => \@all_space_ports,
-            all_archaeology     => \@all_archaeology,
-        });
-    }
-    $log->info('Program end');
 }
 
 
