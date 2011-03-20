@@ -113,7 +113,9 @@ sub call {
 	and exists $deflated->{result}{session_id}) {
         $self->session_id($deflated->{result}{session_id});
     }
-    sleep 2;
+    # throttle back a script so that it is less than 75 per minutes
+    # sleep 1 will reduce it to less than 60 per minute
+    sleep 1;
     return $deflated;
 
 

@@ -108,6 +108,7 @@ sub all_ships_by_type {
     my $type_ref;
     for my $ship ($self->all_ships) {
         my $type = $ship->type;
+#        print "Type [$type]\n";
         push @{$type_ref->{$type}}, $ship;
     }
     return $type_ref;
@@ -129,7 +130,7 @@ sub view_all_ships {
 
     $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'view_all_ships',[
-        $self->connection->session_id, $self->id, $self->page_number]);
+        $self->connection->session_id, $self->id, {page_number => $self->page_number}]);
 
     $self->connection->debug(0);
 

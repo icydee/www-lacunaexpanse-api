@@ -41,17 +41,17 @@
 # Use the probe_visit table to exclude star systems that have been visited in the past 35 days
 # Create a probe_visit entry when the probe is abandoned, not when the probe is sent out
 # After determining 'launch colony is xyz' why do we call view_all_ships twice? get it from colony_data
-# Implement start_glyph_search for glyphs that we have the least of at each archaeology ministry
 # Add routine to check email for excavator result messages, store in database and put messages into archive
 # Add diagnostic to show the number of API hits taken during the running of the script and the number remaining for the day
 # Implement a shut-down of the script if we don't have enough API calls left for the day.
 # When building excavators, don't do prior calls to 'get_buildable' just build and catch the exception
-# When there are no more probes to build, don't call get_buildable for all shipyards
 # Add an auto-login for when the server resets or we lose our session, automatically re-do the last command
-# Output the number of API calls made by the scripts
+#
 # DONE
 #
 # When there are no more excavators to build, don't call get_buildable for all shipyards!
+# Implement start_glyph_search for glyphs that we have the least of at each archaeology ministry
+#
 use Modern::Perl;
 use FindBin qw($Bin);
 use Log::Log4perl;
@@ -89,13 +89,18 @@ MAIN: {
 
     # Tasks to do on the hour (units) and the order to do them in (decimal)
     my $tasks = {
+        0.0     => \&_send_excavators,
+        0.1     => \&_build_probes,
+        0.4     => \&_build_excavators,
+        2.0     => \&_transport_excavators,
+        2.1     => \&_send_probes,
         3.0     => \&_send_excavators,
         3.1     => \&_build_probes,
         3.3     => \&_start_glyph_search,
         3.4     => \&_build_excavators,
         3.5     => \&_transport_glyphs,
-        0.0     => \&_transport_excavators,
-        0.1     => \&_send_probes,
+        5.0     => \&_transport_excavators,
+        5.1     => \&_send_probes,
     };
 
     # Calculate tasks
@@ -105,7 +110,8 @@ MAIN: {
     my $base_hour       = $glyph_config->{base_hour};
     my $task_hour       = ($base_hour + $current_hour) % 7;
 
-$task_hour = 3;
+
+#$task_hour = 3;
 
     my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
@@ -130,7 +136,9 @@ $task_hour = 3;
     COLONY:
     for my $colony (sort {$a->name cmp $b->name} @$colonies) {
 
-#next COLONY if $colony->name ne 'icydee exp';
+next COLONY if $colony->name eq 'hw3';
+
+#next COLONY if $colony->name ne 'exp';
         $log->info('Gathering data for Colony '.$colony->name);
 
         $log->info('Getting space port');
@@ -601,7 +609,16 @@ sub _build_probes {
     my ($colony_datum)      = grep{$_->{colony}->name eq $config->{excavator_launch_colony}} @colony_data;
     $log->info('Building probes at '.$colony->name);
 
-    my $colony_probes       = @{$colony_datum->{ships}{probe}};
+#    print Dumper($colony_datum->{ships});
+
+    my $colony_probes;
+    if ($colony_datum->{ships}{probe}) {
+        $colony_probes       = @{$colony_datum->{ships}{probe}};
+    }
+    else {
+        $colony_probes = 0;
+    }
+
     $log->info('There are currently '.$colony_probes.' probes building, docked or travelling');
 
     my $to_build            = $config->{probe_count} - $colony_probes;
@@ -871,17 +888,17 @@ DISTANCE:
         # For now, ignore any stars we have previously probed. Later on
         # we will have to check for a date > 30 days ago
         if ($star->probe_visits->count) {
-            $log->info("We visited star ".$star->name." previously");
+#            $log->info("We visited star ".$star->name." previously");
             my @visits = $star->probe_visits->all;
             @visits = sort {$a->on_date cmp $b->on_date} @visits;
             for my $visit (@visits) {
-                $log->info("VISITED ON ".$visit->on_date);
+                $log->info("Previously visited ".$star->name." on ".$visit->on_date);
             }
             next DISTANCE;
         }
 
         # ############
-        # ### NOTE ### Is there any reason to think a start would *not* be probeable by a probe?
+        # ### NOTE ### Is there any reason to think a star would *not* be probeable by a probe?
         ############## we could save on the call to get_available and assume any star is probeable
 
         $log->debug("Getting available ships for ".$star->name);
