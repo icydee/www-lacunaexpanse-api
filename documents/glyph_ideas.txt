@@ -1,0 +1,31 @@
+Ideas on how to modify glyph searching.
+
+  * Each colony should be independent
+  * Each colony should have the following
+    * An archaeology ministry, level 15 or above
+    * An observatory
+    * Space port(s)
+    * Ship yard(s)
+  * The process should be as follows. (In no particular order)
+    * Send out any completed excavators to bodies. Probes can be deleted once excavators sent to all bodies at that star.
+    * Check out how many probes now need to be built. Put them on the shipyard queue.
+    * Check how many excavators need to be built. Put them on the shipyard queue.
+    * Send out probes to new stars, or stars not visited in the last 30 days.
+    * Start a new glyph search based on the best halls to build.
+    * Send any glyphs to the home world
+    * Send any plans to the home world
+
+  * Get building status messages from server, store the data in a table against each colony/empire/server
+  * Database should hold which ship yards are available to use for probes and excavators, others reserved for manual use.
+  * Database should keep track of all ships built, their ID, the shipyard they are in and the expected build time.
+  * Should refer to the database for ships that are available to be sent to a body, not make RPC calls to the server.
+  * Once a day do a survey of each colony and ensure the database of ships is up-to-date
+
+  * We need one RPC call to obtain information about the bodies at the star the probe has visited.
+  * Ggoebel suggests 'pooling' probe data and making a 20x20 call to get data for multiple stars at once. Don't think it is feasible.
+
+
+ship data:
+----------
+
+  

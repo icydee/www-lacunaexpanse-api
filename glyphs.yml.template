@@ -1,0 +1,59 @@
+# Template file for glyphs.pl. Copy this to glyphs.yml and make appropriate changes
+#
+
+# Colonies that should be sending out probes and excavators
+# for each colony define the following
+#    free_shipyards: - the number of shipyards to remain unused from building probes or excavators
+#    max_probes: -     the number of probes to retain in the colony.
+#                      This should be about 20% greater than the number of spare probes at the observatory
+#    max_excavators: - The number of excavators to be building/docked/travelling.
+#                      This value depends on the number of docks you have available and want to keep clear
+#    base_hour:      - The base hour on sunday when the colony is serviced. This script works on a rotation
+#                      period of 7 hours, every 7 hours, from the base hour. Each week it comes back into
+#                      step with this base hour. By having a different base hour for each colony you can
+#                      spread the server load and ensure the script does not run over an hour.
+#    glyph_colony:   - The colony to which any glyphs that are found should be sent
+#    plan_colony:    - The colony to which any plans that are found should be sent
+#                      if you send glyphs and plans to yourself, that's OK
+#                      if you don't defined them, then the glyphs and plans are not transported.
+# 
+#    
+excavator_colonies:
+    exp:
+        glyph_colony:       hw3
+        plan-colony:        hw3
+        base_hour:          2
+        max_probes:    	    30
+        free_shipyards:     2
+        max_excavators:     100
+    - hw3
+        base_hour:          3
+        max_probes:         20
+        free_shipyards:     2
+        max_excavators:     80
+
+# the name of ships (must be the same on all colonies) to be used to transport glyphs
+# and plans. If you use the same name for both, then glyphs and plans will be transported on
+# the same ship. You should only need one of each on each colony, unless they have a long way
+# to go, in which case you can have as many as you need.
+glyph_transport_ship_name:  AI Glyph and Plan
+plan_transport_ship_name:   AI Glyph and Plan
+
+# Max and Min distance to send probes and excavators.
+#
+# Note that the script sends a probe to a single star, then excavators follow to all bodies of
+# that star. Although we cannot send an excavator to the same body again within 30 days we actually
+# measure the time since we last probed the star on the basis that all bodies are excavated at 
+# roughly the same time.
+#
+# The shorter the distance the more excavators you can process and the more glyphs you can find
+# At some undisclosed distance (probably at least 1500 units) the return on plans is greater.
+# In my experience the effort and time to go the distance is not worth it. Keep these values 
+# small for a quick turn-around.
+# If the values are very small you will quickly run out of local bodies to excavate since you can
+# only excavate the same body once every 30 days. In which case the script will look out further
+# than the maximum distance to find one's that are eligible to be excavated.
+#
+min_probe_distance:     10
+max_probe_distance:     100
+

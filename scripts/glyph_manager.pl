@@ -110,8 +110,7 @@ MAIN: {
     my $base_hour       = $glyph_config->{base_hour};
     my $task_hour       = ($base_hour + $current_hour) % 7;
 
-
-#$task_hour = 3;
+#$task_hour = 5;
 
     my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
@@ -136,7 +135,7 @@ MAIN: {
     COLONY:
     for my $colony (sort {$a->name cmp $b->name} @$colonies) {
 
-next COLONY if $colony->name eq 'hw3';
+#next COLONY if $colony->name eq 'hw3';
 
 #next COLONY if $colony->name ne 'exp';
         $log->info('Gathering data for Colony '.$colony->name);
@@ -213,7 +212,7 @@ next COLONY if $colony->name eq 'hw3';
             all_archaeology     => \@all_archaeology,
         });
     }
-    $log->info('Program end');
+    $log->info("Program end at hour $task_hour");
 }
 
 
@@ -507,7 +506,10 @@ sub _transport_glyphs {
 #    print Dumper(@glyphs);
                     my @items = map { {type => 'glyph', glyph_id => $_->id} } @glyphs;
 #    print Dumper(@items);
-                    $trade_ministry->push_items($glyph_store_colony, \@items, {ship_id => $glyph_ship->id});
+                    my $success = $trade_ministry->push_items($glyph_store_colony, \@items, {ship_id => $glyph_ship->id});
+                    if (not $success) {
+                        $log->error("Pushing to ".$glyph_store_colony->name." failed\n");
+                    }
                 }
                 else {
                     $log->error('Cannot find a transport for glyphs');
@@ -574,7 +576,10 @@ sub _transport_excavators {
                         $capacity--;
                     }
                     $log->info('Pushing to colony '.$excavator_launch_colony->name.' with ship '.$transport_ship->name);
-                    $trade_ministry->push_items($excavator_launch_colony, \@items, {ship_id => $transport_ship->id});
+                    my $success = $trade_ministry->push_items($excavator_launch_colony, \@items, {ship_id => $transport_ship->id});
+                    if (not $success) {
+                        $log->error("Pushing excavators to ".$excavator_launch_colony->name." failed. Do you have enough docks?");
+                    }
                 }
                 else {
                     $log->error('The ship '.$transport_ship->name.' does not have capacity ('.$transport_ship->hold_size.') to transport other ships');

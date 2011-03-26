@@ -11,14 +11,23 @@ extends 'WWW::LacunaExpanse::API::Building::Generic';
 
 
 # Push items to a colony
+#   returns undef if the receiving port cannot accept any more ships
 #
 sub push_items {
     my ($self, $target, $items, $options) = @_;
 
-    $self->connection->debug(0);
-    my $result = $self->connection->call($self->url, 'push_items',[
-        $self->connection->session_id, $self->id, $target->id, $items, $options]);
-    $self->connection->debug(0);
+    my $result;
+    eval {
+        my $result = $self->connection->call($self->url, 'push_items',[
+            $self->connection->session_id, $self->id, $target->id, $items, $options]);
+    };
+    if ($@) {
+        return;
+    }
+
+    # TODO: Should return the date the ships arrive here in a status block
+    # for now just return success.
+    return 1;
 }
 
 # Get all glyphs that can be traded
