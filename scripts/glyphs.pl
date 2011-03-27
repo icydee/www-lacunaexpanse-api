@@ -76,7 +76,7 @@ COLONY:
 	    my $empire = $api->my_empire;
 	    my ($colony) = $empire->find_colony($colony_name);
 	    if ( ! $colony ) {
-		    $log->fatal('Cannot find colony name $colony_name\n");
+		    $log->fatal("Cannot find colony name $colony_name\n");
 	    }
 	    my $archaeology = $colony->archaeology;
 	    my $space_port  = $colony->space_port;
