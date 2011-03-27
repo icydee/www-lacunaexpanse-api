@@ -1,0 +1,4 @@
+# Mysql Connection Details
+dsn:        DBI:mysql:host=localhost;database=lacuna
+username:   lacuna_app
+password:   lacuna_app_secret
