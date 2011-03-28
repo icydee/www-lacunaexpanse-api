@@ -6,18 +6,19 @@ use strict;
 use warnings;
 
 use FindBin qw($Bin);
-#use FindBin::lib;
-use lib "$Bin/../lib";
+use FindBin::libs;
 
 use Log::Log4perl;
 use Data::Dumper;
 use DateTime;
+use DateTime::Precise;
 use List::Util qw(min max);
 use YAML::Any;
 
 use WWW::LacunaExpanse::API;
 use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
+use WWW::LacunaExpanse::DB;
 
 # Load configurations
 
@@ -29,8 +30,16 @@ MAIN: {
 
     my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
     my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyphs.yml");
+    my $mysql_config    = YAML::Any::LoadFile("$Bin/../mysql.yml");
 
-    print Dumper($glyph_config);
+    my $schema = WWW::LacunaExpanse::DB->connect(
+        $mysql_config->{dsn},
+        $mysql_config->{username},
+        $mysql_config->{password},
+        {AutoCommit => 1, PrintError => 1},
+    );
+
+#    print Dumper($glyph_config);
 
     # Calculate tasks
     my $now             = DateTime->now;
@@ -40,66 +49,66 @@ MAIN: {
     # Tasks to do at each colony on hour number
     my $tasks = {
         0.0  => \&_start_glyph_search,
-        0.1  => \&_transport_glyphs_and_plans,
-        0.2  => \&_build_probes,
-	0.3  => \&_build_excavators,
-	3.0  => \&_send_probes,
-	5.0  => \&_send_excavators,
+#        0.1  => \&_transport_glyphs_and_plans,
+#        0.2  => \&_build_probes,
+#	0.3  => \&_build_excavators,
+#	3.0  => \&_send_probes,
+#	5.0  => \&_send_excavators,
     };
 
     my $api = WWW::LacunaExpanse::API->new({
-		    uri         => $my_account->{uri},
-		    username    => $my_account->{username},
-		    password    => $my_account->{password},
-		    debug_hits  => $my_account->{debug_hits},
-		    });
+        uri         => $my_account->{uri},
+        username    => $my_account->{username},
+        password    => $my_account->{password},
+        debug_hits  => $my_account->{debug_hits},
+    });
 
 COLONY:
     for my $colony_name (keys %{$glyph_config->{excavator_colonies}}) {
-	    my $config = $glyph_config->{excavator_colonies}{$colony_name};
-	    print "Processing colony $colony_name\n";
-	    my $base_hour = $config->{base_hour};
-	    if (! defined $base_hour) {
-		    $log->fatal("Config error: no base_hour defined for colony $colony_name");
-	    }
-	    my $task_hour = ($config->{base_hour} + $current_hour) % 7;
+        my $config = $glyph_config->{excavator_colonies}{$colony_name};
+        print "Processing colony $colony_name\n";
+        my $base_hour = $config->{base_hour};
+	
+        if (! defined $base_hour) {
+            $log->fatal("Config error: no base_hour defined for colony $colony_name");
+        }
+        my $task_hour = ($config->{base_hour} + $current_hour) % 7;
 
-	    my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
+        my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
-	    if ( ! @current_tasks ) {
-		    $log->info("Nothing to do at colony $colony_name on task hour $task_hour");
-		    next COLONY;
-	    }
-	    $log->info("Processing colony $colony_name on task hour $task_hour");
+        if ( ! @current_tasks ) {
+            $log->info("Nothing to do at colony $colony_name on task hour $task_hour");
+        next COLONY;
+    }
+    $log->info("Processing colony $colony_name on task hour $task_hour");
 
 # Get some basic information about the colony.
-	    my $empire = $api->my_empire;
-	    my ($colony) = $empire->find_colony($colony_name);
-	    if ( ! $colony ) {
-		    $log->fatal("Cannot find colony name $colony_name\n");
-	    }
-	    my $archaeology = $colony->archaeology;
-	    my $space_port  = $colony->space_port;
-	    my $shipyard    = $colony->shipyard;
-	    my $observatory = $colony->observatory;
-	    my $trade_min   = $colony->trade_ministry;
-
-	    for my $key (@current_tasks) {
-
-		    &{$tasks->{$key}}({
-				    api             => $api,
-				    schema          => $schema,
-				    config          => $glyph_config,
-				    colony          => $colony,
-				    archaeology     => $archaology,
-				    space_port      => $space_port,
-				    shipyard        => $shipyard,
-				    observatory     => $observatory,
-				    trade_min       => $trade_min,
-				    });
-	    };
+    my $empire = $api->my_empire;
+    my ($colony) = $empire->find_colony($colony_name);
+    if ( ! $colony ) {
+        $log->fatal("Cannot find colony name $colony_name\n");
     }
-      }
+    my $archaeology = $colony->archaeology;
+    my $space_port  = $colony->space_port;
+    my $shipyard    = $colony->shipyard;
+    my $observatory = $colony->observatory;
+    my $trade_min   = $colony->trade_ministry;
+
+    for my $key (@current_tasks) {
+
+        &{$tasks->{$key}}({
+            api             => $api,
+            schema          => $schema,
+            config          => $glyph_config,
+            colony          => $colony,
+            archaeology     => $archaeology,
+            space_port      => $space_port,
+            shipyard        => $shipyard,
+            observatory     => $observatory,
+            trade_min       => $trade_min,
+        });
+    };
+}
 
 
 ####################################################################################
@@ -171,7 +180,7 @@ sub _send_excavators {
 	my $schema              = $args->{schema};
 	my $api                 = $args->{api};
 
-	$log->info("Sending excavators out from colony $launch_colony_name");
+	$log->info("Sending excavators out from colony ".$colony->name);
 
 	$observatory->refresh;
 	my $probed_star = $observatory->next_probed_star;
@@ -590,11 +599,11 @@ sub _build_excavators {
             return;
 	}
 
-	my @shipyards_buildable = (@all_ship_yards);
+	my @shipyards_buildable = (@ship_yards);
 
         # Order all shipyards by the build queue size (increasing) which are below the max build queue size
 	my @shipyards_sorted;
-	for my $shipyard (sort {$a->number_of_ships_building <=> $b->number_of_ships_building} @shipyards {
+	for my $shipyard (sort {$a->number_of_ships_building <=> $b->number_of_ships_building} @ship_yards) {
        	    $log->debug("Shipyard on colony ".$shipyard->colony->name." plot ".$shipyard->x."/".$shipyard->y." has ".$shipyard->number_of_ships_building." ships building");
 	    if ($shipyard->number_of_ships_building < $max_ship_build) {
                 push @shipyards_sorted, {shipyard => $shipyard, building => $shipyard->number_of_ships_building};
@@ -611,7 +620,7 @@ sub _build_excavators {
 	my $min_free = 0;
 	my $cant_build_at;                  # hash of shipyards we can't build at
        	EXCAVATOR:
-        while ($to_build && $min_free < $shipyard_max_builds) {
+        while ($to_build && $min_free < $max_ship_build) {
 
             my $at_least_one_built = 0;
 SHIPYARD:
@@ -652,65 +661,66 @@ SHIPYARD:
 # Save probe data in database
 
 sub _save_probe_data {
-	my ($schema, $api, $probed_star) = @_;
+    my ($schema, $api, $probed_star) = @_;
 
-	my $log = Log::Log4perl->get_logger('MAIN::_save_probe_data');
-	$log->info('_save_probe_data');
+    my $log = Log::Log4perl->get_logger('MAIN::_save_probe_data');
+    $log->info('_save_probe_data');
 
-# See if we have previously probed this star
-	my $db_star = $schema->resultset('Star')->find($probed_star->id);
+    # See if we have previously probed this star
+    my $db_star = $schema->resultset('Star')->find($probed_star->id);
 
-	if ($db_star->scan_date) {
-		$log->debug("Previously scanned star system [".$db_star->name."]. Don't scan again");
-		if ($db_star->status == 1) {
-			$db_star->status(3);
-			$db_star->update;
-		}
+    if ($db_star->scan_date) {
+        $log->debug("Previously scanned star system [".$db_star->name."]. Don't scan again");
+	if ($db_star->status == 1) {
+            $db_star->status(3);
+            $db_star->update;
+        }
+    }
+    else {
+        $log->info("Saving scanned data for star system [".$db_star->name."]");
+        for my $body (@{$probed_star->bodies}) {
+            my $db_body = $schema->resultset('Body')->find($body->id);
+            if ( $db_body ) {
+                # We already have the body data, just update the empire data
+                $db_body->empire_id($body->empire ? $body->empire->id : undef);
+                $db_body->update;
+             }
+             else {
+                 # We need to create it
+                 my $db_body = $schema->resultset('Body')->create({
+                     id          => $body->id,
+                     orbit       => $body->orbit,
+                     name        => $body->name,
+                     x           => $body->x,
+                     y           => $body->y,
+                     image       => $body->image,
+                     size        => $body->size,
+                     type        => $body->type,
+                     star_id     => $probed_star->id,
+                     empire_id   => $body->empire ? $body->empire->id : undef,
+                     water       => $body->water,
+                 });
+                 # Check the ores for this body
+                 my $body_ore = $body->ore;
+                 for my $ore_name (WWW::LacunaExpanse::API::Ores->ore_names) {
+                     # we only store ore data if the quantity is greater than 1
+                     if ($body_ore->$ore_name > 1) {
+                         my $db_ore = $schema->resultset('LinkBodyOre')->create({
+                             ore_id      => WWW::LacunaExpanse::API::Ores->ore_index($ore_name),
+                             body_id     => $db_body->id,
+                             quantity    => $body_ore->$ore_name,
+                         });
+                     }
+                }
+
+            }
+        }
+        $db_star->scan_date(DateTime->now);
+        $db_star->status(3);
+        $db_star->empire_id($api->my_empire->id);
+        $db_star->update;
 	}
-	else {
-		$log->info("Saving scanned data for star system [".$db_star->name."]");
-		for my $body (@{$probed_star->bodies}) {
-			my $db_body = $schema->resultset('Body')->find($body->id);
-			if ( $db_body ) {
-# We already have the body data, just update the empire data
-				$db_body->empire_id($body->empire ? $body->empire->id : undef);
-				$db_body->update;
-			}
-			else {
-# We need to create it
-				my $db_body = $schema->resultset('Body')->create({
-						id          => $body->id,
-						orbit       => $body->orbit,
-						name        => $body->name,
-						x           => $body->x,
-						y           => $body->y,
-						image       => $body->image,
-						size        => $body->size,
-						type        => $body->type,
-						star_id     => $probed_star->id,
-						empire_id   => $body->empire ? $body->empire->id : undef,
-						water       => $body->water,
-						});
-# Check the ores for this body
-				my $body_ore = $body->ore;
-				for my $ore_name (WWW::LacunaExpanse::API::Ores->ore_names) {
-# we only store ore data if the quantity is greater than 1
-					if ($body_ore->$ore_name > 1) {
-						my $db_ore = $schema->resultset('LinkBodyOre')->create({
-								ore_id      => WWW::LacunaExpanse::API::Ores->ore_index($ore_name),
-								body_id     => $db_body->id,
-								quantity    => $body_ore->$ore_name,
-								});
-					}
-				}
-
-			}
-		}
-		$db_star->scan_date(DateTime->now);
-		$db_star->status(3);
-		$db_star->empire_id($api->my_empire->id);
-		$db_star->update;
-	}
+    }
 }
 
 # Get a new candidate star to probe
@@ -718,56 +728,59 @@ sub _save_probe_data {
 # Avoid sending a probe to a star we have visited in the last 30 days
 #
 sub _next_star_to_probe {
-	my ($schema, $config, $space_port, $observatory, $centre_star) = @_;
+    my ($schema, $config, $space_port, $observatory, $centre_star) = @_;
 
-	my ($star, $probe);
+    my ($star, $probe);
 
-	my $log = Log::Log4perl->get_logger('MAIN::_next_star_to_probe');
-	$log->info('_next_star_to_probe');
+    my $log = Log::Log4perl->get_logger('MAIN::_next_star_to_probe');
+    $log->info('_next_star_to_probe');
 
-# Locate a star at a random distance
+    # Locate a star at a random distance
 
-	my $max_distance = $config->{max_distance};
-	my $min_distance = $config->{min_distance};
-	if ($config->{ultra_chance} && int(rand($config->{ultra_chance})) == 0 ) {
-		$max_distance = $config->{ultra_max};
-		$min_distance = $config->{ultra_min};
-	}
+    my $max_distance = $config->{max_distance};
+    my $min_distance = $config->{min_distance};
+    if ($config->{ultra_chance} && int(rand($config->{ultra_chance})) == 0 ) {
+        $max_distance = $config->{ultra_max};
+        $min_distance = $config->{ultra_min};
+    }
 
-	my $distance = int(rand($max_distance - $min_distance)) + $min_distance;
+    my $distance = int(rand($max_distance - $min_distance)) + $min_distance;
 
-	$log->debug("Probing at a distance of $distance");
+    $log->debug("Probing at a distance of $distance");
 
 
-### If we have no 'distance' entries for this star, we need to populate
-### the database with them.
-	if ($schema->resultset('Distance')->search({from_id => $centre_star->id})->count == 0) {
-# Calculate the distance from centre_star to all other stars and put in database
-	}
+    ### If we have no 'distance' entries for this star, we need to populate
+    ### the database with them.
+    if ($schema->resultset('Distance')->search({from_id => $centre_star->id})->count == 0) {
+        # Calculate the distance from centre_star to all other stars and put in database
+    }
+    
+    my $thirty_days_ago = DateTime::Precise->new;
+    $thirty_days_ago->dec_day(31);
 
-# Find the closest star, over the specified distance, that we have not visited in the last 30 days
-	my $distance_rs = $schema->resultset('Distance')->search_rs({
-			from_id             => $centre_star->id,
-			distance            => {'>', $distance},
-			last_probe_visit    => {'<', $thirty_days_ago},
-			}
-			,{
-			order_by    => 'distance',
-			});
+    # Find the closest star, over the specified distance, that we have not visited in the last 30 days
+    my $distance_rs = $schema->resultset('Distance')->search_rs({
+        from_id             => $centre_star->id,
+        distance            => {'>', $distance},
+        last_probe_visit    => {'<', $thirty_days_ago},
+    }
+    ,{
+        order_by    => 'distance',
+    });
 
-	my $star = $distance->to_star;
-	my $now = WWW::LacunaExpanse::API::DateTime->now;
+    $star = $distance->to_star;
+    my $now = WWW::LacunaExpanse::API::DateTime->now;
 
-# Update the database, so we don't send one there again in the next 30 days
-	$distance->last_probe_visit($now);
+    # Update the database, so we don't send one there again in the next 30 days
+    $distance->last_probe_visit($now);
 
-# Also record all visits
-	$schema->resultset('ProbeVisit')->create({
-			star_id     => $star->id,
-			on_date     => $now,
-			});
+    # Also record all visits
+    $schema->resultset('ProbeVisit')->create({
+        star_id     => $star->id,
+        on_date     => $now,
+    });
 
-	return $star;
+    return $star;
 }
 
 1;

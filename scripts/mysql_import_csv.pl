@@ -24,7 +24,7 @@ main: {
         $mysql->{dsn},
         $mysql->{username},
         $mysql->{password},
-        {AutoCommit => 0, PrintError => 1},
+        {AutoCommit => 1, PrintError => 1},
     );
 
     my $stars_rs = $schema->resultset('Star');

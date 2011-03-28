@@ -34,7 +34,7 @@ MAIN: {
 
     my $assemble_on = $config->{assemble_on};
 
-print Dumper ($assemble_on);
+#print Dumper ($assemble_on);
 
 my $hall_def = {
     a   => [qw(goethite halite gypsum trona)],
