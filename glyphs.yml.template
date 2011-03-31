@@ -16,8 +16,15 @@
 #    plan_colony:    - The colony to which any plans that are found should be sent
 #                      if you send glyphs and plans to yourself, that's OK
 #                      if you don't defined them, then the glyphs and plans are not transported.
-# 
-#    
+#   max_ship_build:     The maximum number of ships to have in each shipyard build queue
+#                       this mainly depends upon the build time of ships, typically 3 or 4 is optimal
+#                       you should aim to just be completing the last ship build just as the next cycle
+#                       of ship building rolls around
+#   dont_use_probes:    To save on RPC calls, and time, don't send out probes, just send out to the
+#                       calculated co-ordinates of planets around a star and trap errors. The problem with
+#                       this is you might send to occupied planets, such as Trel.
+#
+#
 excavator_colonies:
     exp:
         glyph_colony:       hw3
@@ -26,29 +33,34 @@ excavator_colonies:
         max_probes:    	    30
         free_shipyards:     2
         max_excavators:     100
-    - hw3
+        max_ship_build:     4
+        dont_use_probes:    1
+    hw3:
         base_hour:          3
         max_probes:         20
         free_shipyards:     2
         max_excavators:     80
 
 # the name of ships (must be the same on all colonies) to be used to transport glyphs
-# and plans. If you use the same name for both, then glyphs and plans will be transported on
-# the same ship. You should only need one of each on each colony, unless they have a long way
-# to go, in which case you can have as many as you need.
-glyph_transport_ship_name:  AI Glyph and Plan
-plan_transport_ship_name:   AI Glyph and Plan
+# and plans.
+# Note, at the moment we don't try to put both glyphs and plans on the same ship if they
+# are going to the same destination, so you need two ships.
+# If the colony that glyphs and plans are going to also sends out excavators you don't need
+# a ship of this name.
+#
+glyph_transport_ship_name:  AI Glyphs
+plan_transport_ship_name:   AI Plans
 
 # Max and Min distance to send probes and excavators.
 #
 # Note that the script sends a probe to a single star, then excavators follow to all bodies of
 # that star. Although we cannot send an excavator to the same body again within 30 days we actually
-# measure the time since we last probed the star on the basis that all bodies are excavated at 
+# measure the time since we last probed the star on the basis that all bodies are excavated at
 # roughly the same time.
 #
 # The shorter the distance the more excavators you can process and the more glyphs you can find
 # At some undisclosed distance (probably at least 1500 units) the return on plans is greater.
-# In my experience the effort and time to go the distance is not worth it. Keep these values 
+# In my experience the effort and time to go the distance is not worth it. Keep these values
 # small for a quick turn-around.
 # If the values are very small you will quickly run out of local bodies to excavate since you can
 # only excavate the same body once every 30 days. In which case the script will look out further
@@ -56,4 +68,11 @@ plan_transport_ship_name:   AI Glyph and Plan
 #
 min_probe_distance:     10
 max_probe_distance:     100
+
+# Algorithm used to search for glyphs:
+# Currently only 'maximise_halls' is defined, which attempts to search for glyphs that will,
+# if found, produce the maximum number of Halls of Verbansk.
+#
+glyph_search_algorithm: maximise_halls
+
 

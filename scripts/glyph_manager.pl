@@ -135,6 +135,7 @@ MAIN: {
     COLONY:
     for my $colony (sort {$a->name cmp $b->name} @$colonies) {
 
+next COLONY if $colony->name eq 'far';
 #next COLONY if $colony->name eq 'hw3';
 
 #next COLONY if $colony->name ne 'exp';
