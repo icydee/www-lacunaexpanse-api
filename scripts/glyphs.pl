@@ -48,14 +48,14 @@ MAIN: {
 
     # Tasks to do at each colony on hour number
     my $tasks = {
-#        0.0  => \&_start_glyph_search,
-#        0.2  => \&_build_probes,
-#        0.3  => \&_build_excavators,
+        0.0 => \&_send_excavators,
+        0.1 => \&_start_glyph_search,
+        0.2 => \&_build_probes,
+        0.3 => \&_build_excavators,
 
 
 #        0.1  => \&_transport_glyphs_and_plans,
 #    3.0  => \&_send_probes,
-#    5.0  => \&_send_excavators,
 #    6.0  => \&_check_email,
     };
 
@@ -67,17 +67,16 @@ MAIN: {
     });
 
 COLONY:
-    for my $colony_name (keys %{$glyph_config->{excavator_colonies}}) {
+    for my $colony_name (sort keys %{$glyph_config->{excavator_colonies}}) {
         my $config = $glyph_config->{excavator_colonies}{$colony_name};
         print "Processing colony $colony_name\n";
         my $base_hour = $config->{base_hour};
-#$base_hour = 0; # start_glyph_search
 
         if (! defined $base_hour) {
             $log->fatal("Config error: no base_hour defined for colony $colony_name");
         }
         my $task_hour = ($config->{base_hour} + $current_hour) % 7;
-$task_hour = 0; # build probes
+#$task_hour = 5;
 
         my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
 
@@ -176,7 +175,7 @@ sub _send_probes {
 }
 
 
-# Send excavators to probed systems
+# Send excavators out to bodies
 #
 sub _send_excavators {
     my ($args) = @_;
@@ -185,6 +184,7 @@ sub _send_excavators {
     $log->info('_send_excavators');
 
     my $colony          = $args->{colony};
+    my $empire          = $args->{empire};
     my $schema          = $args->{schema};
     my $api             = $args->{api};
     my $config          = $args->{config};
@@ -192,8 +192,50 @@ sub _send_excavators {
     my $colony_config   = $config->{excavator_colonies}{$colony->name};
     $log->info("Sending excavators out from colony ".$colony->name);
 
+    my $space_port      = $colony->space_port;
+    if ( ! $space_port ) {
+        $log->error('There is no space port');
+        return;
+    }
+
+    my @excavators      = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
+    if ( ! @excavators) {
+        $log->warn('There are no excavators to send');
+        return;
+    }
+
     if ($colony_config->{dont_use_probes}) {
-        $log->fatal("dont_use_probes is not yet implemented");
+        my ($next_excavated_star)   = $schema->resultset('Config')->search({name => 'next_excavated_star'});
+        my ($next_excavated_orbit)  = $schema->resultset('Config')->search({name => 'next_excavated_orbit'});
+
+        while (@excavators) {
+            # get the x/y co-ordinate of the body
+            my $star = $schema->resultset('Star')->find({server_id => 1, star_id => $next_excavated_star->val}); # we assume that id's are consecutive
+            my $offsets = {
+                1   => {x =>  1, y =>  2},
+                2   => {x =>  2, y =>  1},
+                3   => {x =>  2, y => -1},
+                4   => {x =>  1, y => -2},
+                5   => {x => -1, y => -2},
+                6   => {x => -2, y => -1},
+                7   => {x => -2, y =>  1},
+                8   => {x => -1, y =>  2},
+            };
+            my $x = $star->x + $offsets->{$next_excavated_orbit->val}{x};
+            my $y = $star->y + $offsets->{$next_excavated_orbit->val}{y};
+            my $first_excavator = $excavators[0];
+            my $success = $space_port->send_ship($first_excavator->id, {x => $x, y => $y}); #<<<1>>>#
+            if ($success) {
+                shift @excavators;
+            }
+            if ($next_excavated_orbit->val == 8) {
+                $next_excavated_orbit->update({val => 1});
+                $next_excavated_star->update({val => $next_excavated_star->val + 1});
+            }
+            else {
+                $next_excavated_orbit->update({val => $next_excavated_orbit->val + 1});
+            }
+        }
     }
     else {
         my $observatory = $colony->observatory;
@@ -213,22 +255,6 @@ sub _send_excavators {
         $db_body_rs     = $db_star->bodies;
         $db_body        = $db_body_rs->first;
 
-        my $space_port  = $colony->space_port;
-        if ( ! $space_port ) {
-            $log->error('There is no space port');
-            return;
-        }
-
-        my @excavators;
-
-        $space_port->refresh;
-
-        @excavators = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
-
-        if ( ! @excavators) {
-            $log->warn('There are no excavators to send');
-            return;
-        }
         $log->info('Colony '.$colony->name.' has '.scalar(@excavators).' docked excavators');
 
         # Send to a body around the next closest star
@@ -634,8 +660,7 @@ sub _build_excavators {
     $log->debug("there are ".scalar @ship_yards." shipyards");
     # remove shipyards we need to keep free;
     splice @ship_yards, 0, $colony_config->{free_shipyards};
-    $log->debug("there are ".scalar @ship_yards." shipyards");
-
+    $log->debug("there are ".scalar @ship_yards." shipyards we can use to build excavators");
 
     my $space_port          = $colony->space_port;
 
@@ -659,7 +684,7 @@ sub _build_excavators {
     for my $shipyard (sort {$a->number_of_ships_building <=> $b->number_of_ships_building} @ship_yards) {
         $log->debug("Shipyard on colony ".$shipyard->colony->name." plot ".$shipyard->x."/".$shipyard->y." has ".$shipyard->number_of_ships_building." ships building");
         if ($shipyard->number_of_ships_building < $max_ship_build) {
-            push @shipyards_sorted, {shipyard => $shipyard, building => $shipyard->number_of_ships_building};
+            push @shipyards_sorted, {shipyard => $shipyard, ships_building => $shipyard->number_of_ships_building, docks_max => $shipyard->level};
         }
     }
 
@@ -681,8 +706,12 @@ sub _build_excavators {
             my $shipyard = $shipyard_hash->{shipyard};
             # Ignore shipyards previously flagged as not being able to build
             next SHIPYARD if $cant_build_at->{$shipyard->id};
+            # Don't build more ships than the building level
+#            $log->error("SHIPYARD LEVEL: ".$shipyard_hash->{docks_max});
+#            $log->error("SHIPYARD BUILDING: ".$shipyard_hash->{ships_building});
+            next SHIPYARD if $shipyard_hash->{ships_building} >= $shipyard_hash->{docks_max};
 
-            if ($min_free < $shipyard_hash->{building}) {
+            if ($min_free < $shipyard_hash->{ships_building}) {
                 # start again at the beginning of the shipyard list
                 $log->debug('Start building at the first shipyard again');
                 $min_free++;
@@ -690,7 +719,7 @@ sub _build_excavators {
             }
 
             # then build a ship
-            $log->debug("Building excavator at shipyard ".$shipyard->colony->name." ".$shipyard->id." ".$shipyard->x."/".$shipyard->y." min_free = $min_free ships_building = ".$shipyard_hash->{building});
+            $log->debug("Building excavator at shipyard ".$shipyard->colony->name." ".$shipyard->id." ".$shipyard->x."/".$shipyard->y." min_free = $min_free ships_building = ".$shipyard_hash->{ships_building});
             if ( ! $shipyard->build_ship('excavator') ) {
                 # We can't build at this shipyard any more
                 $cant_build_at->{$shipyard->id} = 1;
@@ -698,7 +727,8 @@ sub _build_excavators {
                 # and so the next line should be 'last EXCAVATOR'
                 next SHIPYARD;
             }
-            $shipyard_hash->{building}++;
+            $shipyard_hash->{ships_building}++;
+            $shipyard_hash->{docks_available}--;
             $to_build--;
             $at_least_one_built = 1;
             last EXCAVATOR if $to_build <= 0;

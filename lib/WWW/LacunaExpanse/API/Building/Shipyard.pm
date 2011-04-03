@@ -128,14 +128,14 @@ sub build_ship {
 sub view_build_queue {
     my ($self) = @_;
 
-    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'view_build_queue',[
         $self->connection->session_id, $self->id, $self->page_number]);
-    $self->connection->debug(0);
 
     my $body = $result->{result};
 
     $self->simple_strings($body, \@simple_strings_2);
+
+print "ships building = ".$self->number_of_ships_building."\n";
 
     # other strings
     my @ships_building;

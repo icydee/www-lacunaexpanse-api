@@ -1,0 +1,16 @@
+######### glyph_manager.log4perl.conf #########
+
+log4perl.rootlogger                 = DEBUG,LOGFILE,SCREEN
+
+log4perl.appender.LOGFILE           = Log::Log4perl::Appender::File
+log4perl.appender.LOGFILE.filename  = /var/sandbox/lacuna-from-icydee/log/create_halls.log
+log4perl.appender.LOGFILE.mode      = append
+
+log4perl.appender.LOGFILE.layout    = Log::Log4perl::Layout::PatternLayout
+log4perl.appender.LOGFILE.layout.ConversionPattern  = %d %m%n
+
+log4perl.appender.SCREEN            = Log::Log4perl::Appender::ScreenColoredLevels
+log4perl.appender.SCREEN.stderr     = 0
+log4perl.appender.SCREEN.layout     = Log::Log4perl::Layout::PatternLayout
+log4perl.appender.SCREEN.layout.ConversionPattern  = %d %m%n
+
