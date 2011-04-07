@@ -92,14 +92,14 @@ MAIN: {
         0.0     => \&_send_excavators,
         0.1     => \&_build_probes,
         0.4     => \&_build_excavators,
-        2.0     => \&_transport_excavators,
+#        2.0     => \&_transport_excavators,
         2.1     => \&_send_probes,
         3.0     => \&_send_excavators,
         3.1     => \&_build_probes,
         3.3     => \&_start_glyph_search,
         3.4     => \&_build_excavators,
         3.5     => \&_transport_glyphs,
-        5.0     => \&_transport_excavators,
+#        5.0     => \&_transport_excavators,
         5.1     => \&_send_probes,
     };
 

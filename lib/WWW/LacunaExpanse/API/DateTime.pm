@@ -75,6 +75,28 @@ sub from_lacuna_email_string {
     return;
 }
 
+#
+# parse a Laguna Expanse email message date time into a DateTime object
+#
+sub from_lacuna_email_string_mysql {
+    my ($class, $date_str) = @_;
+
+#    print "DateTime: [$date_str]\n";
+    my ($year,$month,$day,$hour,$minute,$second) = $date_str =~
+        m{(\d\d\d\d)/?(\d\d)/?(\d\d)\s?(\d\d):?(\d\d):?(\d{1,2}?)};
+
+    my $dt = DateTime->new(
+        year    => $year,
+        month   => $month,
+        day     => $day,
+        hour    => $hour,
+        minute  => $minute,
+        second  => $second,
+    );
+
+    return $dt;
+}
+
 
 #
 # Format seconds as days, hours, minutes and seconds

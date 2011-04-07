@@ -98,18 +98,25 @@ CREATE TABLE star_distance (
 );
 
 CREATE TABLE excavation (
+    id              integer not null auto_increment,
     server_id       integer not null,
     empire_id       integer not null,
-    body_id         integer not null,
-    on_date         text,
+    body_id         integer,
+    body_name       varchar(32),
+    on_date         varchar(24),
+    colony_id       integer,
     resource_genre  text,
     resource_type   text,
     resource_qty    integer,
     foreign key(server_id) references server(id),
     foreign key(body_id) references body(id),
     foreign key(empire_id) references empire(id),
-    primary key(server_id,empire_id,body_id)
+    foreign key(colony_id) references body(id),
+    primary key(id)
 );
+
+--- alter table excavation add column colony_id integer after on_date;
+--- alter table excavation add foreign key(colony_id) references body(id);
 
 CREATE TABLE link_body__ore (
     server_id   integer not null,
@@ -122,6 +129,18 @@ CREATE TABLE link_body__ore (
     primary key(server_id,body_id,ore_id)
 );
 
+CREATE TABLE config (
+    server_id   integer not null,
+    empire_id   integer not null,
+    name        varchar(24) not null,
+    val         varchar(256),
+    foreign key(server_id) references server(id),
+    foreign key(empire_id) references empire(id),
+    primary key(server_id,empire_id,name)
+);
+
+insert into config (server_id, empire_id, name, val) values (1, 945, 'next_excavated_star', 1);
+insert into config (server_id, empire_id, name, val) values (1, 945, 'next_excavated_orbit', 1);
 
 CREATE TABLE ore (
     server_id   integer not null,
