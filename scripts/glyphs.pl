@@ -32,6 +32,58 @@ MAIN: {
     my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyphs.yml");
     my $mysql_config    = YAML::Any::LoadFile("$Bin/../mysql.yml");
 
+    my $now             = DateTime->now;
+    my $current_day     = $now->dow - 1;     # 0 == Monday
+    my $current_hour    = $current_day * 24 + $now->hour;
+    $log->debug("Current hour is $current_hour");
+    my $something_to_do;
+
+    my $tasks_to_do;
+    # Do the empire wide checks first
+    my $empire_config = $glyph_config->{empire};
+    my @task_hour_keys = grep {$_ =~ /every_(\d+)_hours/} keys %{$empire_config};
+    $log->debug("Empire task hours ".join(' - ', @task_hour_keys));
+    my @empire_tasks;
+    for my $task_key (@task_hour_keys) {
+        my ($hour) = $task_key =~ /every_(\d+)_hour/;
+        if ($current_hour % $hour == 0) {
+            push @empire_tasks, @{$empire_config->{"every_${hour}_hours"}};
+            $something_to_do = 1;
+        }
+    }
+    my $all_tasks->{empire} = \@empire_tasks;
+
+    # Now see if there are any colony tasks for this hour
+    my $colony_config = $glyph_config->{colony};
+
+COLONY:
+    for my $colony_name (keys %$colony_config) {
+        my $config = $colony_config->{$colony_name};
+        print "Processing colony $colony_name\n";
+        my $base_hour = $config->{base_hour} || 0;
+
+        # Get the tasks for this colony
+        @task_hour_keys = grep {$_ =~ /every_(\d+)_hours/} keys %{$config};
+        $log->debug("Colony $colony_name task hours ".join(' - ', @task_hour_keys));
+        my @colony_tasks;
+        for my $task_key (@task_hour_keys) {
+            my ($hour) = $task_key =~ /every_(\d+)_hour/;
+            $log->debug("Colony $colony_name task hour $hour");
+            if ($current_hour % $hour == 0) {
+                $log->debug("current hour $current_hour, hour = $hour");
+                push @colony_tasks, @{$config->{"every_${hour}_hours"}};
+                $something_to_do = 1;
+            }
+        }
+        $log->debug("Colony $colony_name tasks ".join(' - ', @colony_tasks));
+        $all_tasks->{colonies}{$colony_name} = \@colony_tasks;
+    }
+
+    if (! $something_to_do) {
+        $log->info("Nothing to do at task hour $current_hour");
+        exit;
+    }
+
     my $schema = WWW::LacunaExpanse::DB->connect(
         $mysql_config->{dsn},
         $mysql_config->{username},
@@ -39,32 +91,32 @@ MAIN: {
         {AutoCommit => 1, PrintError => 1},
     );
 
-#    print Dumper($glyph_config);
-
-    # Calculate tasks
-    my $now             = DateTime->now;
-    my $current_day     = $now->dow - 1;            # 0 = Monday
-    my $current_hour    = $current_day * 24 + $now->hour;
-
-    # Tasks to do at each colony on hour number
-    my $tasks = {
-        0.0 => \&_send_excavators,
-#        0.1 => \&_start_glyph_search,
-#        0.2 => \&_build_probes,
-        0.3 => \&_build_excavators,
-
-
-#        0.1  => \&_transport_glyphs_and_plans,
-#    3.0  => \&_send_probes,
-#    6.0  => \&_check_email,
-    };
-
     my $api = WWW::LacunaExpanse::API->new({
         uri         => $my_account->{uri},
         username    => $my_account->{username},
         password    => $my_account->{password},
         debug_hits  => $my_account->{debug_hits},
     });
+
+    # Do the empire wide tasks first.
+    my $empire = $api->my_empire;
+    TASK:
+    for my $task (@{$all_tasks->{empire}}) {
+        my $subroutine = $subroutine_ref->{$task};
+        if ( ! $subroutine ) {
+            $log->error("Unknown Empire task: '$task'");
+            next TASK;
+        }
+        &$subroutine({
+            schema      => $schema,
+            api         => $api,
+            empire      => $empire,
+        });
+    }
+
+    # Do all the colony tasks
+
+
 
 COLONY:
     for my $colony_name (sort keys %{$glyph_config->{excavator_colonies}}) {
