@@ -97,6 +97,28 @@ CREATE TABLE star_distance (
     primary key(server_id,from_star_id,to_star_id)
 );
 
+CREATE TABLE message (
+    server_id       integer not null,
+    empire_id       integer not null,
+    message_id      integer not null,
+    subject         text,
+    on_date         varchar(24),
+    sender          text,
+    sender_id       integer,
+    recipient       text,
+    recipient_id    integer,
+    has_read        integer,
+    has_replied     integer,
+    has_archived    integer,
+    in_reply_to     text,
+    body_preview    text,
+    body            text,
+    foreign key(server_id) references server(id),
+    foreign key(empire_id) references empire(id),
+    primary key(server_id,empire_id,message_id)
+);
+
+
 CREATE TABLE excavation (
     id              integer not null auto_increment,
     server_id       integer not null,

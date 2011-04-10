@@ -49,8 +49,8 @@ MAIN: {
     # Tasks to do at each colony on hour number
     my $tasks = {
         0.0 => \&_send_excavators,
-        0.1 => \&_start_glyph_search,
-        0.2 => \&_build_probes,
+#        0.1 => \&_start_glyph_search,
+#        0.2 => \&_build_probes,
         0.3 => \&_build_excavators,
 
 

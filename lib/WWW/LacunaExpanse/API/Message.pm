@@ -8,10 +8,11 @@ with 'WWW::LacunaExpanse::API::Role::Connection';
 # Attributes
 has 'id'                => (is => 'ro', required => 1);
 has 'cached'            => (is => 'ro');
+has 'body_preview'      => (is => 'rw');
 
 my $path = '/inbox';
 
-my @simple_strings  = qw(subject from from_id to to_id has_read has_replied body_preview body has_archived in_reply_to);
+my @simple_strings  = qw(subject from from_id to to_id has_read has_replied body has_archived in_reply_to);
 my @date_strings    = qw(date);
 my @other_strings   = qw(recipients tags attachments);
 

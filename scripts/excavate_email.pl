@@ -27,6 +27,7 @@ use WWW::LacunaExpanse::API::DateTime;
 my $config_mysql    = YAML::Any::LoadFile("$Bin/../mysql.yml");
 my $config_account  = YAML::Any::LoadFile("$Bin/../myaccount.yml");
 
+die "This script is currently not used. See 'save_email.pl' script instead";
 my $mysql_schema = WWW::LacunaExpanse::DB->connect(
     $config_mysql->{dsn},
     $config_mysql->{username},
