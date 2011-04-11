@@ -98,6 +98,10 @@ COLONY:
         debug_hits  => $my_account->{debug_hits},
     });
 
+    my $subroutine_ref = {
+        arch_min_search     => \&arch_min_search,
+    };
+
     # Do the empire wide tasks first.
     my $empire = $api->my_empire;
     TASK:
@@ -115,8 +119,33 @@ COLONY:
     }
 
     # Do all the colony tasks
+COLONY:
+    for my $colony_name (sort keys %{$all_tasks->{colonies}}) {
+        print "Tasks for colony $colony_name\n";
+        my ($colony) = @{$empire->find_colony($colony_name)};
+        if ( ! $colony ) {
+            $log->error("Cannot find colony '$colony_name');
+            next COLONY;
+        }
+        TASK:
+        for my $task (@{$all_tasks->{colonies}{$colony_name}}) {
+            my $subroutine = $subroutine_ref->{$task};
+            if ( ! $subroutine ) {
+                $log->error("Unknown Colony task: '$task'");
+                next TASK;
+            }
+            &$subroutine({
+                schema      => $schema,
+                api         => $api,
+                empire      => $empire,
+                colony      => $colony,
+            });
+        }
+    }
 
 
+
+my $tasks;
 
 COLONY:
     for my $colony_name (sort keys %{$glyph_config->{excavator_colonies}}) {
