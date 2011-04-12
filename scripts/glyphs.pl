@@ -29,7 +29,7 @@ MAIN: {
     $log->info('Program start');
 
     my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
-    my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyphs.yml");
+    my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyphs_new.yml");
     my $mysql_config    = YAML::Any::LoadFile("$Bin/../mysql.yml");
 
     my $now             = DateTime->now;
