@@ -9,6 +9,45 @@ extends 'WWW::LacunaExpanse::API::Building::Generic';
 
 # Attributes
 
+my @simple_strings_1    = qw(cargo_space_used_each);
+my @other_strings_1     = qw(plans);
+
+for my $attr (@simple_strings_1, @other_strings_1) {
+    has $attr => (is => 'ro', writer => "_$attr", lazy_build => 1);
+
+    __PACKAGE__->meta()->add_method(
+        "_build_$attr" => sub {
+            my ($self) = @_;
+            $self->get_plans;
+            return $self->$attr;
+        }
+    );
+}
+
+sub get_plans {
+    my ($self) = @_;
+
+    my $result = $self->connection->call($self->url, 'get_plans',[
+        $self->connection->session_id, $self->id]);
+
+    my $body = $result->{result};
+
+    $self->simple_strings($body, \@simple_strings_1);
+
+    # other strings
+    my @plans;
+    for my $plan_hash (@{$body->{plans}}) {
+        my $plan = WWW::LacunaExpanse::API::Plan->new({
+            id                  => $plan_hash->{id},
+            name                => $plan_hash->{name},
+            level               => $plan_hash->{level},
+            extra_build_level   => $plan_hash->{extra_build_level},
+        });
+
+        push @plans, $plan;
+    }
+    $self->_plans(\@plans);
+}
 
 # Push items to a colony
 #   returns undef if the receiving port cannot accept any more ships

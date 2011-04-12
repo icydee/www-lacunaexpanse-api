@@ -162,7 +162,6 @@ sub trade_ministry {
     return $trade;
 }
 
-
 # Return the Planetary Command Center
 #
 sub planetary_command_center {

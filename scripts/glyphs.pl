@@ -99,7 +99,14 @@ COLONY:
     });
 
     my $subroutine_ref = {
-        arch_min_search     => \&arch_min_search,
+        arch_min_search             => \&_arch_min_search,
+        save_email                  => \&_save_email,
+        build_excavators            => \&_build_excavators,
+        build_probes                => \&_build_probes,
+        send_probes                 => \&_send_probes,
+        send_excavators             => \&_send_excavators,
+        transport_glyphs_and_plans  => \&_transport_glyphs_and_plans,
+        transport_excavators        => \&_transport_excavators,
     };
 
     # Do the empire wide tasks first.
@@ -112,6 +119,7 @@ COLONY:
             next TASK;
         }
         &$subroutine({
+            config      => $glyph_config,
             schema      => $schema,
             api         => $api,
             empire      => $empire,
@@ -124,7 +132,7 @@ COLONY:
         print "Tasks for colony $colony_name\n";
         my ($colony) = @{$empire->find_colony($colony_name)};
         if ( ! $colony ) {
-            $log->error("Cannot find colony '$colony_name');
+            $log->error("Cannot find colony '$colony_name'");
             next COLONY;
         }
         TASK:
@@ -135,6 +143,7 @@ COLONY:
                 next TASK;
             }
             &$subroutine({
+                config      => $glyph_config,
                 schema      => $schema,
                 api         => $api,
                 empire      => $empire,
@@ -143,6 +152,7 @@ COLONY:
         }
     }
 
+exit;
 
 
 my $tasks;
@@ -252,6 +262,93 @@ sub _send_probes {
         $probeable_star->update;
 
         $max_probes_to_send--;
+    }
+}
+
+# Save email and archive some of it
+#
+sub _save_email {
+    my ($args) = @_;
+
+    my $log         = Log::Log4perl->get_logger('MAIN::_save_email');
+    $log->info('_save_email');
+
+    my $my_empire   = $args->{empire};
+    my $schema      = $args->{schema};
+    my $api         = $args->{api};
+    my $config      = $args->{config};
+
+    my $inbox       = $api->inbox;
+    my @archive_titles = @{$config->{empire}{archive_titles}};
+
+    my @archive_messages;
+    my $message_count = 0;
+
+    $inbox->reset_message;
+    my @all_messages = $inbox->all_messages;
+
+    MESSAGE:
+    # Read all messages, oldest first
+    for my $message (reverse @all_messages) {
+        $log->info($message->date."\t".$message->subject);
+
+        # Do we already have the message?
+        my ($db_message) = $schema->resultset('Message')->search({
+            server_id       => 1,
+            empire_id       => $my_empire->id,
+            message_id      => $message->id,
+        });
+        if (! $db_message ) {
+            # Not already saved, so save it.
+            eval {
+               my $db_message = $schema->resultset('Message')->create({
+                   server_id       => 1,
+                   empire_id       => $my_empire->id,
+                   message_id      => $message->id,
+                   subject         => $message->subject,
+                   on_date         => $message->date,
+                   sender          => $message->from,
+                   sender_id       => $message->from_id,
+                   recipient       => $message->to,
+                   recipient_id    => $message->to_id,
+                   has_read        => $message->has_read,
+                   has_replied     => $message->has_replied,
+                   has_archived    => $message->has_archived,
+                   in_reply_to     => $message->in_reply_to,
+                   body_preview    => $message->body_preview,
+                   body            => $message->body,
+               });
+            };
+            if ($@) {
+                my $e = $@;
+                $log->info("#### $e ####");
+                if ($e =~ m/Duplicate entry/) {
+                    # then we have already stored it, don't worry
+                }
+                else {
+                    $log->error("Cannot save record. $e");
+                    last MESSAGE;
+                }
+            }
+        }
+        # Archive certain message titles immediately.
+        if ($message->from_id == $my_empire->id && $message->to_id == $my_empire->id) {
+            if (grep {$_ eq $message->subject} @archive_titles) {
+                push @archive_messages, $message->id;
+            }
+        }
+        if (++$message_count == 20) {
+            $message_count = 0;
+            $log->debug("#### ARCHIVING MESSAGES ####");
+            $inbox->archive_messages(\@archive_messages);
+            undef @archive_messages;
+        }
+    }
+
+    # archive any remaining messages
+    if (@archive_messages) {
+        $log->debug("#### ARCHIVING MESSAGES ####");
+        $inbox->archive_messages(\@archive_messages);
     }
 }
 
@@ -386,15 +483,30 @@ sub _send_excavators {
 # The current algorithm tries to maximise the number of Halls
 # if you want it to do anything else please do so via the YAML configuration
 #
-sub _start_glyph_search {
+sub _arch_min_search {
     my ($args) = @_;
 
     my $log = Log::Log4perl->get_logger('MAIN::_start_glyph_search');
 
     my $config          = $args->{config};
-    my $algorithm       = $config->{glyph_search_algorithm};
+    my $algorithm       = $config->{empire}{glyph_search_algo};
     my $colony          = $args->{colony};
     my $empire          = $args->{empire};
+
+    # Find out if any colonies want to to archaeology ministry searches for ore.
+    my $do_arch_searches;
+    COLONY:
+    for my $col (@{$empire->colonies}) {
+        if ($config->{colony}{$col->name}{arch_min_search}) {
+            $log->debug($col->name."' wants to do an archaeology search");
+            $do_arch_searches = 1;
+            last COLONY;
+        }
+    }
+    if ( ! $do_arch_searches ) {
+        $log->warn("No colonies want to do archaeology ministry searches for ore");
+        return;
+    }
 
     # Locate all archaeology ministries in the empire
     my @all_archaeology;
@@ -405,7 +517,7 @@ sub _start_glyph_search {
         }
     }
 
-    # Get the total of all glyphs on all colonies
+    # Get the total of all glyphs at all archaeology ministries
     my $combined_glyphs;
     for my $glyph_name (WWW::LacunaExpanse::API::Ores->ore_names) {
         $combined_glyphs->{$glyph_name} = 0;
@@ -416,7 +528,6 @@ sub _start_glyph_search {
             $combined_glyphs->{$glyph_name} += $glyph_summary->{$glyph_name};
         }
     }
-
 
     # list of glyph names, in the order they are to be searched for
     my @glyph_sort_order;
@@ -452,27 +563,35 @@ sub _start_glyph_search {
     }
     $log->info('GLYPH SORT ORDER '.join('-', @glyph_sort_order));
 
-    my $archaeology = $colony->archaeology;
+    # Now set each (enabled) archaeology ministry searching for glyphs
 
-    # Now start a search at this ministry based on the glyph sort order
-    $log->info("Searching archaeology ministry ".$archaeology->x.":".$archaeology->y." on colony ".$archaeology->colony->name);
-    my @ores_for_processing = @{$archaeology->get_ores_available_for_processing};
-    $log->info("Ores for processing = ".join('-', map {$_->type} @ores_for_processing));
-    my $done_search = 0;
-ORE:
-    for my $ore_type (@glyph_sort_order) {
-        my $do_search = grep {$ore_type eq $_->type} @ores_for_processing;
+ARCHAEOLOGY:
+    for my $archaeology (@all_archaeology) {
 
-        if ($do_search) {
-            $done_search = 1;
-            if ($archaeology->search_for_glyph($ore_type)) {
-                $log->info("Searching for glyph type '$ore_type' at colony ".$archaeology->colony->name);
+        # Only search if the config says to do so
+        next ARCHAEOLOGY unless $config->{colony}{$archaeology->colony->name}{arch_min_search};
+
+        # Now start a search at this ministry based on the glyph sort order
+        $log->info("Searching archaeology ministry ".$archaeology->x.":".$archaeology->y." on colony ".$archaeology->colony->name);
+        my @ores_for_processing = @{$archaeology->get_ores_available_for_processing};
+        $log->info("Ores for processing = ".join('-', map {$_->type} @ores_for_processing));
+        my $done_search = 0;
+
+        ORE:
+        for my $ore_type (@glyph_sort_order) {
+            my $do_search = grep {$ore_type eq $_->type} @ores_for_processing;
+
+            if ($do_search) {
+                $done_search = 1;
+                if ($archaeology->search_for_glyph($ore_type)) {
+                    $log->info("Searching for glyph type '$ore_type' at colony ".$archaeology->colony->name);
+                    last ORE;
+                }
+            }
+            else {
+                $log->warn("Cannot search for glyphs at colony ".$archaeology->colony->name);
                 last ORE;
             }
-        }
-        else {
-            $log->warn("Cannot search for glyphs at colony ".$archaeology->colony->name);
-            last ORE;
         }
     }
 }
@@ -492,14 +611,16 @@ sub _transport_glyphs_and_plans {
     my $colony          = $args->{colony};
     my $empire          = $args->{empire};
     my $config          = $args->{config};
-    my $colony_config   = $config->{excavator_colonies}{$colony->name};
+    my $colony_config   = $config->{colony}{$colony->name};
     my $glyph_colony    = $colony_config->{glyph_colony};
     if ($glyph_colony) {
-        $glyph_colony   = $empire->find_colony($glyph_colony);
+        ($glyph_colony) = @{$empire->find_colony($glyph_colony)};
+        $log->debug("Glyph colony is ".$glyph_colony->name);
     }
     my $plan_colony     = $colony_config->{plan_colony};
     if ($plan_colony) {
-        $plan_colony    = $empire->find_colony($plan_colony);
+        ($plan_colony)  = @{$empire->find_colony($plan_colony)};
+        $log->debug("Plan colony is ".$plan_colony->name);
     }
 
     # Get the trade ministry
@@ -509,42 +630,70 @@ sub _transport_glyphs_and_plans {
         return;
     }
 
-    # Get the planetary command centre
-    my $planetary_command_centre = $colony->planetary_command_centre;
+    # Get the required buildings
+    my $planetary_command_centre    = $colony->planetary_command_center;
+    my $space_port                  = $colony->space_port;
 
     # Get the glyph/plan transport ship(s)
-    my ($glyph_ship, $plan_ship);
+    my (@glyph_ships, @plan_ships);
+    my @all_ships = $space_port->all_ships;
+
     if ($glyph_colony && $glyph_colony->name ne $colony->name) {
+        $log->debug("Checking for docked glyph ships");
+        (@glyph_ships) = grep {$_->name eq $config->{empire}{glyph_ship_name} && $_->task eq 'Docked'} @all_ships;
     }
     if ($plan_colony && $plan_colony->name ne $colony->name) {
+        $log->debug("Checking for docked plan ships");
+        (@plan_ships) = grep {$_->name eq $config->{empire}{plan_ship_name} && $_->task eq 'Docked'} @all_ships;
     }
 
+    if (! @glyph_ships && $glyph_colony) {
+        $log->error("There are no glyph ships named ".$config->{empire}{glyph_ship_name}." on colony ".$colony->name);
+    }
+    if (! @plan_ships && $plan_colony) {
+        $log->error("There are no plan ships named ".$config->{empire}{plan_ship_name}." on colony ".$colony->name);
+    }
     # check for glyphs
     $log->debug("Checking for glyphs to transport on ".$colony->name);
 
     my @glyphs = @{$trade_ministry->get_glyphs};
     if (@glyphs) {
+        $log->info("There are ".scalar(@glyphs)." glyphs to transport");
     }
 
-    my @plans = @{$planetary_command_centre->plans};
+    my @plans = @{$trade_ministry->plans};
     if (@plans) {
+        $log->info("There are ".scalar(@plans)." plans to transport");
     }
+
+    if (@plans && $plan_colony && @plan_ships < 1) {
+        $log->error("There are no ships named ".$config->{empire}{plan_ship_name}." docked to transport the plans");
+    }
+
+    if (@glyphs && $glyph_colony && @glyph_ships < 1) {
+        $log->error("There are no ships named ".$config->{empire}{glyph_ship_name}." docked to transport the glyphs");
+    }
+    $log->info("There are ".scalar(@glyph_ships)." glyph ships");
+    $log->info("There are ".scalar(@plan_ships)." plan ships");
 
     # put glyphs onto glyph ship
     my $storage_used = 0;
-    if (@glyphs && $glyph_ship && $glyph_colony) {
+    while (@glyphs && @glyph_ships && $glyph_colony) {
+        my $glyph_ship = shift @glyph_ships;
         # max glyphs we can put on this ship
-        my $max_glyphs = int($glyph_ship->hold_size / @glyphs) * 1000;
-        my @glyphs_to_transport = @glyphs; # SOME FUNCTION THAT RETURNS THE FIRST $max_glyphs
+        my $max_glyphs = int($glyph_ship->hold_size / @glyphs) * 100;
+        my @glyphs_to_transport = splice @glyphs, 0, $max_glyphs;
         my @items = map { {type => 'glyph', glyph_id => $_->id} } @glyphs_to_transport;
         $trade_ministry->push_items($glyph_colony, \@items, {ship_id => $glyph_ship->id});
     }
 
     # put plans onto plan ship
-    if (@plans && $plan_ship && $plan_colony) {
+    while (@plans && @plan_ships && $plan_colony) {
+        $log->debug("Transporting Plans");
+        my $plan_ship = shift @plan_ships;
         # max plans we can put on this ship
-        my $max_plans = int($plan_ship->hold_size / @glyphs) * 10000;
-        my @plans_to_transport = @plans; # SOME FUNCTION THAT RETURNS THE FIRST $max_plans
+        my $max_plans = int($plan_ship->hold_size / @plans) * $trade_ministry->cargo_space_used_each;
+        my @plans_to_transport = splice @plans, 0, $max_plans;
         my @items = map { {type => 'plan', plan_id => $_->id} } @plans_to_transport;
         $trade_ministry->push_items($plan_colony, \@items, {ship_id => $plan_ship->id});
     }

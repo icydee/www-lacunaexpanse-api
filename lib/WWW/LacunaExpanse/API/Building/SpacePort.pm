@@ -120,9 +120,11 @@ sub count_ships {
 sub view_all_ships {
     my ($self) = @_;
 
+    $self->connection->debug(0);
     my $result = $self->connection->call($self->url, 'view_all_ships',[
         $self->connection->session_id, $self->id, {no_paging => 1},
     ]);
+    $self->connection->debug(0);
 
     $result = $result->{result};
 
