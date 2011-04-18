@@ -70,15 +70,34 @@ sub call {
     else {
         $self->log->debug("PATH $path : METHOD $method : params : ", join(' - ', @$params));
     }
-    my $req = $self->marshal->call_to_request(
-        JSON::RPC::Common::Procedure::Call->inflate(
-            jsonrpc => "2.0",
-            id      => "1",
-            method  => $method,
-            params  => $params,
-        ),
-        uri => URI->new($self->uri.$path),
-    );
+
+    my $max_tries = 5;
+
+    my $req;
+    TRIES:
+    while ($max_tries) {
+        # TRY
+        eval {
+            $req = $self->marshal->call_to_request(
+                JSON::RPC::Common::Procedure::Call->inflate(
+                    jsonrpc => "2.0",
+                    id      => "1",
+                    method  => $method,
+                    params  => $params,
+                ),
+                uri => URI->new($self->uri.$path),
+            );
+        };
+        # CATCH
+        if ($@) {
+            my $e = $@;
+            $self->log->debug("RETRY: ".(6 - $max_tries)." $e");
+            $max_tries--;
+        }
+        else {
+            last TRIES;
+        }
+    }
 
     $self->log->trace($req->as_string);
 #    if ($self->debug) {

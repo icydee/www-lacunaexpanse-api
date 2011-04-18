@@ -1,6 +1,6 @@
 #!/home/icydee/localperl/bin/perl
 
-# Convert all glyphs into halls
+# Convert all glyphs into halls at specified colonies
 
 use Modern::Perl;
 use FindBin qw($Bin);
@@ -11,6 +11,7 @@ use List::Util qw(min max);
 use YAML::Any;
 
 use lib "$Bin/../lib";
+use WWW::LacunaExpanse::DB;
 use WWW::LacunaExpanse::API;
 use WWW::LacunaExpanse::API::DateTime;
 
@@ -23,6 +24,7 @@ MAIN: {
 
     my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
     my $config          = YAML::Any::LoadFile("$Bin/../create_halls.yml");
+    my $mysql_config    = YAML::Any::LoadFile("$Bin/../mysql.yml");
 
     my $api = WWW::LacunaExpanse::API->new({
         uri         => $my_account->{uri},
@@ -30,7 +32,15 @@ MAIN: {
         password    => $my_account->{password},
     });
 
-    my $colonies = $api->my_empire->colonies;
+    my $schema = WWW::LacunaExpanse::DB->connect(
+        $mysql_config->{dsn},
+        $mysql_config->{username},
+        $mysql_config->{password},
+        {AutoCommit => 1, PrintError => 1},
+    );
+
+    my $empire      = $api->my_empire;
+    my $colonies    = $empire->colonies;
 
     my $assemble_on = $config->{assemble_on};
 
@@ -43,6 +53,7 @@ my $hall_def = {
     d   => [qw(monazite fluorite beryl magnetite)],
     e   => [qw(rutile chromite chalcopyrite galena)],
 };
+my $now = WWW::LacunaExpanse::API::DateTime->now;
 
 COLONY:
     for my $colony (sort {$a->name cmp $b->name} @$colonies) {
@@ -56,6 +67,25 @@ COLONY:
         }
 
         my $glyphs = $archaeology->get_glyphs;
+
+        # Put all glyphs owned into the database
+        for my $glyph (@$glyphs) {
+            my $db_glyph = $schema->resultset('Glyph')->find({
+                server_id   => 1,
+                empire_id   => $empire->id,
+                glyph_id    => $glyph->id
+            });
+            if ( ! $db_glyph) {
+                # We have not previously inserted it, so save it now
+                $db_glyph = $schema->resultset('Glyph')->create({
+                    server_id   => 1,
+                    empire_id   => $empire->id,
+                    glyph_id    => $glyph->id,
+                    glyph_type  => $glyph->type,
+                    found_on    => $now,
+                });
+            }
+        }
 
         for my $hall (sort keys %$hall_def) {
             my @types;
@@ -71,10 +101,6 @@ COLONY:
                 my $g3 = shift @{$types[3]};
 
                 print "Assemble [".$g0->type."-".$g0->id."][".$g1->type."][".$g2->type."][".$g3->type."]\n";
-#exit;
-#                print "Assemble ".
-#                    join(" ", map {$_->id."-".$_->type} $g0,$g1,$g2,$g3).
-#                    "\n";
 
                 $archaeology->assemble_glyphs([$g0,$g1,$g2,$g3]);
             }
