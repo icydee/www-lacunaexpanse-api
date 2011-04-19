@@ -193,3 +193,13 @@ insert into ore (server_id, ore_id, name) values (1, 18, 'trona');
 insert into ore (server_id, ore_id, name) values (1, 19, 'uraninite');
 insert into ore (server_id, ore_id, name) values (1, 20, 'zircon');
 
+CREATE TABLE glyph (
+    server_id   integer not null,
+    empire_id   integer not null,
+    glyph_id    integer not null,
+    glyph_type  text,
+    found_on    varchar(24),
+    foreign key(server_id) references server(id),
+    foreign key(empire_id) references empire(id),
+    primary key(server_id,empire_id,glyph_id)
+);

@@ -35,6 +35,9 @@ MAIN: {
     my $now             = DateTime->now;
     my $current_day     = $now->dow - 1;     # 0 == Monday
     my $current_hour    = $current_day * 24 + $now->hour;
+
+#$current_hour = 14;
+
     $log->debug("Current hour is $current_hour");
     my $something_to_do;
 
@@ -43,14 +46,16 @@ MAIN: {
     my $empire_config = $glyph_config->{empire};
     my @task_hour_keys = grep {$_ =~ /every_(\d+)_hours/} keys %{$empire_config};
     $log->debug("Empire task hours ".join(' - ', @task_hour_keys));
+    my $base_hour = $empire_config->{base_hour} || 0;
     my @empire_tasks;
     for my $task_key (@task_hour_keys) {
         my ($hour) = $task_key =~ /every_(\d+)_hour/;
-        if ($current_hour % $hour == 0) {
+        if (($current_hour - $base_hour) % $hour == 0) {
             push @empire_tasks, @{$empire_config->{"every_${hour}_hours"}};
             $something_to_do = 1;
         }
     }
+    $log->debug("Empire tasks ".join(' - ', @empire_tasks));
     my $all_tasks->{empire} = \@empire_tasks;
 
     # Now see if there are any colony tasks for this hour
@@ -69,7 +74,7 @@ COLONY:
         for my $task_key (@task_hour_keys) {
             my ($hour) = $task_key =~ /every_(\d+)_hour/;
             $log->debug("Colony $colony_name task hour $hour");
-            if ($current_hour % $hour == 0) {
+            if (($current_hour - $base_hour) % $hour == 0) {
                 $log->debug("current hour $current_hour, hour = $hour");
                 push @colony_tasks, @{$config->{"every_${hour}_hours"}};
                 $something_to_do = 1;
@@ -317,7 +322,7 @@ sub _send_excavators {
     my $api             = $args->{api};
     my $config          = $args->{config};
 
-    my $colony_config   = $config->{excavator_colonies}{$colony->name};
+    my $colony_config   = $config->{colony}{$colony->name};
     $log->info("Sending excavators out from colony ".$colony->name);
 
     my $space_port      = $colony->space_port;
@@ -333,9 +338,12 @@ sub _send_excavators {
     }
 
     if ($colony_config->{dont_use_probes}) {
+        $log->info("Sending excavators without using probes method");
         my ($next_excavated_star)   = $schema->resultset('Config')->search({name => 'next_excavated_star'});
         my ($next_excavated_orbit)  = $schema->resultset('Config')->search({name => 'next_excavated_orbit'});
 
+        my $fail_count = 0;
+        EXCAVATOR:
         while (@excavators) {
             # get the x/y co-ordinate of the body
             my $star = $schema->resultset('Star')->find({server_id => 1, star_id => $next_excavated_star->val}); # we assume that id's are consecutive
@@ -352,9 +360,22 @@ sub _send_excavators {
             my $x = $star->x + $offsets->{$next_excavated_orbit->val}{x};
             my $y = $star->y + $offsets->{$next_excavated_orbit->val}{y};
             my $first_excavator = $excavators[0];
+
+            # NOTE: send_ship will normally fail because of there being no body at the co-ordinates
+            # however it could fail because of the 10k RPC limit in which case we need to handle
+            # it differently.
             my $success = $space_port->send_ship($first_excavator->id, {x => $x, y => $y}); #<<<1>>>#
             if ($success) {
+                $fail_count = 0;
                 shift @excavators;
+            }
+            else {
+                $fail_count++;
+                if ($fail_count == 30) {
+                    # Then it is not likely to be because we can't visit the body.
+                    # it is more likely a server or RPC error, so terminate now
+                    last EXCAVATOR;
+                }
             }
             if ($next_excavated_orbit->val == 8) {
                 $next_excavated_orbit->update({val => 1});
@@ -366,6 +387,7 @@ sub _send_excavators {
         }
     }
     else {
+        $log->info("Sending excavators having first sent probes");
         my $observatory = $colony->observatory;
 
         $observatory->refresh;
@@ -442,13 +464,13 @@ sub _arch_min_search {
     my $algorithm       = $config->{empire}{glyph_search_algo};
     my $colony          = $args->{colony};
     my $empire          = $args->{empire};
+    my $schema          = $args->{schema};
 
     # Find out if any colonies want to to archaeology ministry searches for ore.
     my $do_arch_searches;
     COLONY:
     for my $col (@{$empire->colonies}) {
         if ($config->{colony}{$col->name}{arch_min_search}) {
-            $log->debug($col->name."' wants to do an archaeology search");
             $do_arch_searches = 1;
             last COLONY;
         }
@@ -459,6 +481,8 @@ sub _arch_min_search {
     }
 
     # Locate all archaeology ministries in the empire
+    $log->info("At least one colony wants to do an archaeology search");
+    $log->info("Locate all archaeology ministries in the empire, to see what glyphs we have");
     my @all_archaeology;
     for my $col (@{$empire->colonies}) {
         my $arch = $col->archaeology;
@@ -467,15 +491,44 @@ sub _arch_min_search {
         }
     }
 
+
+    ##### NOTE #####
+    ################
+    # Something here is doing a call to get_glyphs twice for each arch min
+    ################
+
     # Get the total of all glyphs at all archaeology ministries
+    my @all_glyphs;
     my $combined_glyphs;
     for my $glyph_name (WWW::LacunaExpanse::API::Ores->ore_names) {
         $combined_glyphs->{$glyph_name} = 0;
     }
     for my $arch (@all_archaeology) {
-        my $glyph_summary = $arch->get_glyph_summary;
-        for my $glyph_name (keys %$glyph_summary) {
-            $combined_glyphs->{$glyph_name} += $glyph_summary->{$glyph_name};
+        my $glyphs = $arch->get_glyphs;
+        push @all_glyphs, @$glyphs;
+
+        for my $glyph (@$glyphs) {
+            $combined_glyphs->{$glyph->type}++;
+        }
+    }
+
+    # Put all glyphs owned into the database
+    my $now = WWW::LacunaExpanse::API::DateTime->now;
+    for my $glyph (@all_glyphs) {
+        my $db_glyph = $schema->resultset('Glyph')->find({
+            server_id   => 1,
+            empire_id   => $empire->id,
+            glyph_id    => $glyph->id
+        });
+        if ( ! $db_glyph) {
+            # We have not previously inserted it, so save it now
+            $db_glyph = $schema->resultset('Glyph')->create({
+                server_id   => 1,
+                empire_id   => $empire->id,
+                glyph_id    => $glyph->id,
+                glyph_type  => $glyph->type,
+                found_on    => $now,
+            });
         }
     }
 
@@ -535,13 +588,15 @@ ARCHAEOLOGY:
                 $done_search = 1;
                 if ($archaeology->search_for_glyph($ore_type)) {
                     $log->info("Searching for glyph type '$ore_type' at colony ".$archaeology->colony->name);
-                    last ORE;
                 }
-            }
-            else {
-                $log->warn("Cannot search for glyphs at colony ".$archaeology->colony->name);
+                else {
+                    $log->info("Cannot search for glyphs at arch min. Perhaps it is busy");
+                }
                 last ORE;
             }
+        }
+        if (! $done_search) {
+            $log->warn("No ores for glyph searching at colony ".$archaeology->colony->name);
         }
     }
 }
@@ -725,7 +780,7 @@ sub _build_probes {
     $log->info('_build_probes at colony '.$colony->name);
 
     my $config              = $args->{config};
-    my $colony_config       = $config->{excavator_colonies}{$colony->name};
+    my $colony_config       = $config->{colony}{$colony->name};
 
     if ($colony_config->{dont_use_probes}) {
         $log->info('We don\'t use probes at colony '.$colony->name);
@@ -874,15 +929,18 @@ sub _build_excavators {
     $log->info('_build_excavators at colony '.$colony->name);
 
     my $config              = $args->{config};
-    my $colony_config       = $config->{colonies}{$colony->name};
+    my $colony_config       = $config->{colony}{$colony->name};
+    my $free_shipyards      = $colony_config->{free_shipyards} || 0;
+    my $max_ship_build      = $colony_config->{max_ship_build} || 0;
+    my $max_excavators      = $colony_config->{max_excavators} || 0;
 
     # Get all ship-yards at this colony
     my @ship_yards          = sort {$a->id <=> $b->id} @{$colony->building_type('Shipyard')};
 
-    $log->debug("keep ".$colony_config->{free_shipyards}." shipyards clear ");
+    $log->debug("keep $free_shipyards shipyards clear ");
     $log->debug("there are ".scalar @ship_yards." shipyards");
     # remove shipyards we need to keep free;
-    splice @ship_yards, 0, $colony_config->{free_shipyards};
+    splice @ship_yards, 0, $free_shipyards;
     $log->debug("there are ".scalar @ship_yards." shipyards we can use to build excavators");
 
     my $space_port          = $colony->space_port;
@@ -891,8 +949,7 @@ sub _build_excavators {
     my @colony_excavators   = $space_port->all_ships('excavator');
     $log->info('There are currently '.scalar @colony_excavators.' excavators building, docked or travelling on '.$colony->name);
 
-    my $max_ship_build      = $colony_config->{max_ship_build};
-    my $to_build            = $colony_config->{max_excavators} - scalar @colony_excavators;
+    my $to_build            = $max_excavators - scalar @colony_excavators;
 
     if ($to_build <= 0) {
         $log->info('No more excavators need to be build at this time on colony '.$colony->name);
@@ -948,7 +1005,7 @@ sub _build_excavators {
                 $cant_build_at->{$shipyard->id} = 1;
                 # NOTE TO SELF. Presumably, if we can't build at this shipyard, we can't build at any shipyard
                 # and so the next line should be 'last EXCAVATOR'
-                next SHIPYARD;
+                last EXCAVATOR;
             }
             $shipyard_hash->{ships_building}++;
             $shipyard_hash->{docks_available}--;
@@ -975,7 +1032,10 @@ sub _save_probe_data {
     $log->info('_save_probe_data');
 
     # See if we have previously probed this star
-    my $db_star = $schema->resultset('Star')->find($probed_star->id);
+    my $db_star = $schema->resultset('Star')->find({
+        server_id   => 1,               # (I really must stop doing magic numbers!)
+        star_id     => $probed_star->id,
+    });
 
     if ($db_star->scan_date) {
         $log->debug("Previously scanned star system [".$db_star->name."]. Don't scan again");
