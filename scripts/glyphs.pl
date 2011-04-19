@@ -101,6 +101,7 @@ COLONY:
     my $subroutine_ref = {
         arch_min_search             => \&_arch_min_search,
         save_email                  => \&_save_email,
+        build_ships                 => \&_build_ships,
         build_excavators            => \&_build_excavators,
         build_probes                => \&_build_probes,
         send_probes                 => \&_send_probes,
@@ -151,62 +152,7 @@ COLONY:
             });
         }
     }
-
-exit;
-
-
-my $tasks;
-
-COLONY:
-    for my $colony_name (sort keys %{$glyph_config->{excavator_colonies}}) {
-        my $config = $glyph_config->{excavator_colonies}{$colony_name};
-        print "Processing colony $colony_name\n";
-        my $base_hour = $config->{base_hour};
-
-        if (! defined $base_hour) {
-            $log->fatal("Config error: no base_hour defined for colony $colony_name");
-        }
-        my $task_hour = ($config->{base_hour} + $current_hour) % 7;
-#$task_hour = 5;
-
-        my @current_tasks   = grep { int($_) == $task_hour } sort keys %$tasks;
-
-        if ( ! @current_tasks ) {
-            $log->info("Nothing to do at colony $colony_name on task hour $task_hour");
-            next COLONY;
-        }
-        $log->info("Processing colony $colony_name on task hour $task_hour");
-
-        # Get some basic information about the colony.
-        my $empire = $api->my_empire;
-        my ($colony) = @{$empire->find_colony($colony_name)};
-        $log->info($colony);
-        if ( ! $colony ) {
-            $log->fatal("Cannot find colony name $colony_name\n");
-        }
-        $log->info("getting basic information for colony ".$colony_name." empire ".$empire->name);
-        my $archaeology = $colony->archaeology;
-        my $space_port  = $colony->space_port;
-        my $shipyard    = $colony->shipyard;
-        my $observatory = $colony->observatory;
-        my $trade_min   = $colony->trade_ministry;
-
-        for my $key (@current_tasks) {
-
-            &{$tasks->{$key}}({
-                api             => $api,
-                schema          => $schema,
-                config          => $glyph_config,
-                empire          => $empire,
-                colony          => $colony,
-                archaeology     => $archaeology,
-                space_port      => $space_port,
-                shipyard        => $shipyard,
-                observatory     => $observatory,
-                trade_min       => $trade_min,
-            });
-        };
-    }
+    $log->info("Program completed");
 }
 
 
@@ -232,7 +178,11 @@ sub _send_probes {
     my @probes_docked       = $space_port->all_ships('probe', 'Docked');
     my @probes_travelling   = $space_port->all_ships('probe', 'Travelling');
 
-    my $centre_star = $api->find({ star => $colony->star->name }) || die "Cannot find star (".$colony->star->name,")";
+    my $centre_star = $api->find({ star => $colony->star->name });
+    if (! $centre_star) {
+        $log->error("Cannot find centre star ".$colony->star->name);
+        return;
+    }
 
     # Max number of probes we can send is the observatory max_probes minus observatory probed_stars
     # minus the number of travelling probes.
@@ -596,10 +546,6 @@ ARCHAEOLOGY:
     }
 }
 
-##########
-# Transport glyphs to the colony where they will be stored
-##########
-
 # Transport glyphs and plans to the storage colony
 #
 sub _transport_glyphs_and_plans {
@@ -630,9 +576,8 @@ sub _transport_glyphs_and_plans {
         return;
     }
 
-    # Get the required buildings
-    my $planetary_command_centre    = $colony->planetary_command_center;
-    my $space_port                  = $colony->space_port;
+    # Get the Space Port
+    my $space_port = $colony->space_port;
 
     # Get the glyph/plan transport ship(s)
     my (@glyph_ships, @plan_ships);
@@ -676,7 +621,7 @@ sub _transport_glyphs_and_plans {
     $log->info("There are ".scalar(@glyph_ships)." glyph ships");
     $log->info("There are ".scalar(@plan_ships)." plan ships");
 
-    # put glyphs onto glyph ship
+    # put glyphs onto glyph ships
     my $storage_used = 0;
     while (@glyphs && @glyph_ships && $glyph_colony) {
         my $glyph_ship = shift @glyph_ships;
@@ -687,7 +632,7 @@ sub _transport_glyphs_and_plans {
         $trade_ministry->push_items($glyph_colony, \@items, {ship_id => $glyph_ship->id});
     }
 
-    # put plans onto plan ship
+    # put plans onto plan ships
     while (@plans && @plan_ships && $plan_colony) {
         $log->debug("Transporting Plans");
         my $plan_ship = shift @plan_ships;
@@ -716,7 +661,7 @@ sub _transport_excavators {
 
 COLONY:
     for my $colony_datum (@colony_data) {
-# Transport the excavators to the launch colony
+    # Transport the excavators to the launch colony
 
         next COLONY if ($colony_datum->{colony}->name eq $excavator_launch_colony->name);
 
@@ -740,7 +685,7 @@ TRANSPORT:
                 last TRANSPORT if ! @docked_excavators;
 
                 $log->info('Ship to transport excavators is '.$transport_ship->id);
-# How many excavators can the transporter transport?
+                # How many excavators can the transporter transport?
                 my $capacity = int($transport_ship->hold_size / 50000);
                 if ($capacity) {
                     my @items;
@@ -861,6 +806,54 @@ SHIPYARD:
 }
 
 
+# Generic build ships routine.
+#
+# allocate a specified number of shipyards to each ship type.
+# and fill each ship build queue to the level of the building.
+# If no more ships of a particular type are needed, use those
+# shipyards for the next priority of ship.
+#
+sub _build_ships {
+    my ($args) = @_;
+
+    my $log = Log::Log4perl->get_logger('MAIN::_build_ships');
+    my $colony = $args->{colony};
+    $log->info('_build_ships at colony '.$colony->name);
+
+    my $config          = $args->{config};
+    my $colony_config   = $config->{colonies}{$colony->name}; 
+
+    # Get all shipyards at this colony
+    # We might want to sort by largest building level first, then ID so a level 22 shipyard comes first
+    my @ship_yards      = sort {$a->id <=> $b->id} @{$colony->building_type('Shipyard')};
+    $log->info("There are ".scalar(@ship_yards)." ship yards on colony ".$colony->name);
+
+    # Get all ships at this colony
+    my $space_port      = $colony->space_port;
+    my @all_ships       = $space_port->all_ships;
+
+    # Remove shipyards we want to keep clear for personal use
+    splice @ship_yards, 0, $colony_config->{free_shipyards};
+
+    # Now iterate through each ship type to see what needs to be built.
+    my @ship_builds     = @{$colony_config->{ship_build}};
+    for my $ship_build (@ship_builds) {
+        my $ships_now   = grep {$_->type eq $ship_build->type} @all_ships;
+        my $ships_needed = $ship_builds->quota - $ships_now;
+        if ($ships_needed > 0) {
+            # loop around filling each shipyard in turn until there are either no
+            # more shipyards or we don't need any more ships
+            while ($ships_needed && @ship_yards) {
+                # get the first shipyard on the queue.
+                # NOTE. If the shipyard is level 22 and we have manufacturing level 7 then build all ships here.
+                # if the shipyard is building as many ships as the building level, go on to the next shipyard
+                # build a ship
+                # If we can't build a ship then we assume no shipyards can build a ship so break out of all loops
+                
+            }
+        }
+    }
+
 # Build more excavators on this colony.
 #
 # Order the shipyards by build queue size (smallest first)
@@ -881,7 +874,7 @@ sub _build_excavators {
     $log->info('_build_excavators at colony '.$colony->name);
 
     my $config              = $args->{config};
-    my $colony_config       = $config->{excavator_colonies}{$colony->name};
+    my $colony_config       = $config->{colonies}{$colony->name};
 
     # Get all ship-yards at this colony
     my @ship_yards          = sort {$a->id <=> $b->id} @{$colony->building_type('Shipyard')};
@@ -1070,7 +1063,7 @@ sub _next_star_to_probe {
     ### If we have no 'distance' entries for this star, we need to populate
     ### the database with them.
     if ($schema->resultset('Distance')->search({from_id => $centre_star->id})->count == 0) {
-        # Calculate the distance from centre_star to all other stars and put in database
+        # TO BE DONE... Calculate the distance from centre_star to all other stars and put in database
     }
 
     my $thirty_days_ago = DateTime::Precise->new;
