@@ -871,43 +871,65 @@ SHIPYARD:
 sub _build_ships {
     my ($args) = @_;
 
-    my $log = Log::Log4perl->get_logger('MAIN::_build_ships');
-    my $colony = $args->{colony};
+    my $log             = Log::Log4perl->get_logger('MAIN::_build_ships');
+    my $colony          = $args->{colony};
     $log->info('_build_ships at colony '.$colony->name);
 
     my $config          = $args->{config};
-    my $colony_config   = $config->{colonies}{$colony->name}; 
+    my $colony_config   = $config->{colony}{$colony->name}; 
 
     # Get all shipyards at this colony
     # We might want to sort by largest building level first, then ID so a level 22 shipyard comes first
-    my @ship_yards      = sort {$a->id <=> $b->id} @{$colony->building_type('Shipyard')};
+    my @ship_yards      = sort {$b->level <=> $a->level && $a->id <=> $b->id} @{$colony->building_type('Shipyard')};
     $log->info("There are ".scalar(@ship_yards)." ship yards on colony ".$colony->name);
 
     # Get all ships at this colony
     my $space_port      = $colony->space_port;
     my @all_ships       = $space_port->all_ships;
 
+    # Get the shipyards at this colony
+    my @ship_builds     = @{$colony_config->{ship_build}};
+    my $quick_ship_yard;
+    if ($colony_config->{quick_ship_build}) {
+        $quick_ship_yard = shift @ship_yards;
+    }
     # Remove shipyards we want to keep clear for personal use
     splice @ship_yards, 0, $colony_config->{free_shipyards};
 
-    # Now iterate through each ship type to see what needs to be built.
-    my @ship_builds     = @{$colony_config->{ship_build}};
+    my $ship_yard       = shift @ship_yards;
+    my $available_docks = $ship_yard->level - $ship_yard->ships_building;
+
+    SHIP:
     for my $ship_build (@ship_builds) {
-        my $ships_now   = grep {$_->type eq $ship_build->type} @all_ships;
-        my $ships_needed = $ship_builds->quota - $ships_now;
+        my $ships_now   = grep {$_->type eq $ship_build->{type}} @all_ships;
+        my $ships_needed = $ship_build->{quota} - $ships_now;
         if ($ships_needed > 0) {
             # loop around filling each shipyard in turn until there are either no
             # more shipyards or we don't need any more ships
-            while ($ships_needed && @ship_yards) {
-                # get the first shipyard on the queue.
-                # NOTE. If the shipyard is level 22 and we have manufacturing level 7 then build all ships here.
-                # if the shipyard is building as many ships as the building level, go on to the next shipyard
-                # build a ship
-                # If we can't build a ship then we assume no shipyards can build a ship so break out of all loops
+
+            SHIP_YARD:
+            while ($ships_needed && $ship_yard) {
+                # quick_ship_build means we have a level 22 shipyard, and level 7 species manufacturing affinity
+                # so do all ship building at the level 22 shipyard
                 
+                if ($available_docks <= 0) {
+                    my $ship_yard = shift @ship_yards;
+                    last SHIP unless $ship_yard;
+                    next SHIP_YARD;
+                }
+                if ($quick_ship_yard) {
+                    $log->debug("Building ship type ".$ship_build->{type}." at level 22 ship yard");
+                    last SHIP unless $quick_ship_yard->build_ship($ship_build->{type});
+                }
+                else {
+                    $log->debug("Building ship type ".$ship_build->{type}." at normal ship yard");
+                    last SHIP unless $ship_yard->build_ship($ship_build->{type});
+                }
+                $available_docks--;
             }
         }
     }
+}
 
 # Build more excavators on this colony.
 #
