@@ -29,7 +29,7 @@ MAIN: {
     $log->info('Program start');
 
     my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
-    my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyphs_new.yml");
+    my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyphs.yml");
     my $mysql_config    = YAML::Any::LoadFile("$Bin/../mysql.yml");
 
     my $now             = DateTime->now;
@@ -876,7 +876,7 @@ sub _build_ships {
     $log->info('_build_ships at colony '.$colony->name);
 
     my $config          = $args->{config};
-    my $colony_config   = $config->{colony}{$colony->name}; 
+    my $colony_config   = $config->{colony}{$colony->name};
 
     # Get all shipyards at this colony
     # We might want to sort by largest building level first, then ID so a level 22 shipyard comes first
@@ -897,24 +897,30 @@ sub _build_ships {
     splice @ship_yards, 0, $colony_config->{free_shipyards};
 
     my $ship_yard       = shift @ship_yards;
-    my $available_docks = $ship_yard->level - $ship_yard->ships_building;
+    my $available_docks = $ship_yard->level - scalar @{$ship_yard->ships_building};
+    $log->debug("ship_yard level = ".$ship_yard->level." ships building = ". scalar @{$ship_yard->ships_building});
 
     SHIP:
     for my $ship_build (@ship_builds) {
+        $log->info("Ship build ".$ship_build->{type});
         my $ships_now   = grep {$_->type eq $ship_build->{type}} @all_ships;
         my $ships_needed = $ship_build->{quota} - $ships_now;
+        $log->info("Ships needed = $ships_needed");
         if ($ships_needed > 0) {
+            $log->info("Ships needed = $ships_needed ship_yard = $ship_yard");
             # loop around filling each shipyard in turn until there are either no
             # more shipyards or we don't need any more ships
 
             SHIP_YARD:
             while ($ships_needed && $ship_yard) {
+                $log->debug("Ship Yard ".$ship_yard->x."/".$ship_yard->y." Available docks $available_docks");
                 # quick_ship_build means we have a level 22 shipyard, and level 7 species manufacturing affinity
                 # so do all ship building at the level 22 shipyard
-                
-                if ($available_docks <= 0) {
-                    my $ship_yard = shift @ship_yards;
+
+                while ($available_docks <= 0) {
+                    $ship_yard          = shift @ship_yards;
                     last SHIP unless $ship_yard;
+                    $available_docks    = $ship_yard->level - scalar @{$ship_yard->ships_building};
                     next SHIP_YARD;
                 }
                 if ($quick_ship_yard) {
@@ -925,8 +931,12 @@ sub _build_ships {
                     $log->debug("Building ship type ".$ship_build->{type}." at normal ship yard");
                     last SHIP unless $ship_yard->build_ship($ship_build->{type});
                 }
+                $ships_needed--;
                 $available_docks--;
             }
+        }
+        else {
+            $log->info("Quota for ".$ship_build->{type}." of ".$ship_build->{quota}." ships, has been met");
         }
     }
 }

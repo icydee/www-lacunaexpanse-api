@@ -135,8 +135,6 @@ sub view_build_queue {
 
     $self->simple_strings($body, \@simple_strings_2);
 
-print "ships building = ".$self->number_of_ships_building."\n";
-
     # other strings
     my @ships_building;
     for my $ship_hash (@{$body->{ships_building}}) {

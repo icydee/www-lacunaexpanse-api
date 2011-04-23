@@ -10,10 +10,11 @@
 #                       that date and time.
 #   glyph_ship_name:    The name of the ship to use to transport glyphs. Must be the same across all colonies.
 #   plan_ship_name:     The name of the ship to use to transport plans. Currently must be different to glyph_ship_name
+#   archive_titles:     Email titles that should be archived (others are read, but not archived) by parse_email
 #   every_x_hours:      Tasks to perform every 'x' hours, e.g. every_6_hours
 #                       Empire wide tasks include the following
 #                           arch_min_search     search all archaeology ministries for glyphs
-#                           take_out_waste      carry out waste disposal (should this be per colony?)
+#                           take_out_waste      carry out waste disposal (should this be per colony?) NOT IMPLEMENTED
 #                           parse_email         check email for excavator alerts, etc. and archive them
 #
 empire:
@@ -21,62 +22,90 @@ empire:
     base_hour:          0
     glyph_ship_name:    'AI Glyph'
     plan_ship_name:     'AI Plan'
-    every_6_hours:
+    archive_titles:
+        - 'Glyph Discovered!'
+        - 'Resources Discovered!'
+        - 'Excavator Found Nothing'
+        - 'Excavator Uncovered Plan'
+        - 'Ship Shot Down'
+        - 'Wasting Resources'
+
+    every_7_hours:
         - arch_min_search
-        - take_out_waste
-    every_11_hours:
-        - parse_email
 
 #
 # Configuration for each colony
 #
 # specify for each colony:
-#     'dont_probe', if true, means don't send probes to stars before sending excavators
+#     'dont_use_probes', if true, means don't send probes to stars before sending excavators
 #         instead just send excavators to calculated body co-ordinates offset from the star
+#     'arch_min_search', if true, you want the archaeology ministry to do search ore for glyphs
+#     'glyph_search_algorithm', the way to determine the best glyph to search for, currently only
+#         'maximise_halls' is implemented
 #     'ship_build' controls which ships will be built
 #         type          the type of ship as specified in the API e.g. 'excavator'
-#         ship_yards    the number of ship-yards to devote to building that type of ship
 #         quota         the maximum number of ships of that type to build
-#         max_queue     the maximum number of ships to put in the ship_yard queue,
-#                       if not specified it will fill the queue to the building level
 #         If there are not enough ship yards to build all ship types, the priority will be
 #         given to the first entry. Once the ship quota has been met, the later items will be built
-#
+#     'free_shipyards' how many shipyards to be kept back for manual use
+#     'quick_ship_build' if you have a level 22 shipyard, and species 7 manufacturing you can take
+#         advantage of the 15 second ship building time by setting this true. All ship builds will be put
+#         on the level 22 shipyard upto the combined sum of all shipyard levels.
 #     'base_hour' is the offset in hours from the previous Sunday 00:00hrs from when to calculate
-#         what tasks the colony should do. So 6 would do tasks at 06:00, 12:00, 18:00 and 00:00 each day
-#
+#         the 'every_x_hours' (see below)
 #     'every_x_hours' determines what tasks to carry out and what frequency.
-#         e.g. 'every_6_hours' - the title says it all.
+#         e.g. 'every_6_hours' - with a 'base_hour' of 1 would carry out tasks a 01:00,07:00,13:00 and 19:00 each day
 #         It is recommended that the number is a factor of either number of hours in a day, or a week
-#         some being 1,2.3,4,6,7,8,12,24 
+#         some being 1,2,3,4,6,7,8,12,24
 #         '7' is particularly useful for archaeology searches. If you set it at 6 hours it may miss a
 #         search from time to time and you will have wasted 6 hours. 7 hours is a good compromise.
-#
+#     'glyph_colony' - the colony to transport glyphs to
+#     'plan_colony' - the colony to transport plans to (not yet implemented)
 #         under each period, specify the task name. these being.
 #             build_ships -     build ships according to the config in 'ship_build' above
 #             send_excavators - send excavators to the planets
 #             send_probes -     send probes to the stars
-#             ship_glyphs -     send glyphs to the specified colony
-#             ship_plans -      send plans to the specified colony         
+#             transport_glyphs_and_plans - send glyphs (plans not currently implemented) to the 'glyph_colony'
 #
 colony:
-    far:
-        dont_probe:         1
-        base_hour:          0
-        glyph_colony:       hw3
-        plan_colony:        hw3
-        ship_build:
-            - type:         excavator
-              ship_yards:   12
-              quota:        200
-              max_queue:    4
-            - type:         drone
-              ship_yards:   4
-              quota:        200
-              max_queue:    4
-        every_2_hours:
-            - do_this
-        every_8_hours:
-            - do_that
 
+    colony_name:
+        dont_use_probes:        1
+        arch_min_search:        1
+        glyph_search_algorithm: maximise_halls
+        base_hour:              0
+        glyph_colony:           home_world
+        free_shipyards:         4
+        ship_build:
+            - type:             probe
+              quota:            50
+            - type:             drone
+              quota:            200
+            - type:             excavator
+              quota:            500
+        every_12_hours:
+            - transport_glyphs_and_plans
+        every_24_hours:
+            - build_ships
+            - send_excavators
+
+    home_world:
+        dont_use_probes:        1
+        arch_min_search:        1
+        glyph_search_algorithm: maximise_halls
+        base_hour:              4
+        free_shipyards:         0
+        dont_use_probes:        1
+        quick_ship_build:       1
+        ship_build:
+            - type:             probe
+              quota:            50
+            - type:             drone
+              quota:            200
+            - type:             excavator
+              quota:            500
+
+        every_4_hours:
+            - build_ships
+            - send_excavators
 
