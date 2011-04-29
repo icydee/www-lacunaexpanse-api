@@ -44,6 +44,25 @@ MAIN: {
     my $tasks_to_do;
     # Do the empire wide checks first
     my $empire_config = $glyph_config->{empire};
+    if ($empire_config->{stop_until_after}) {
+        my ($year,$month,$day,$hour,$minute,$second) = $empire_config->{stop_until_after} =~ m/(\d\d\d\d)\/(\d\d)\/(\d\d) (\d\d):(\d\d):(\d\d)/;
+        my $now = DateTime->now;
+        $log->info(join('-', $year,$month,$day,$hour,$minute,$second));
+        my $until   = DateTime->new({
+            year    => $year,
+            month   => $month,
+            day     => $day,
+            hour    => $hour,
+            minute  => $minute,
+            second  => $second,
+        });
+        $log->debug("Compare [$now] with [$until]");
+        if (DateTime->compare($now, $until) < 0) {
+            $log->error("Cannot run program again until ".$empire_config->{stop_until_after});
+            exit;
+        }
+    }
+
     my @task_hour_keys = grep {$_ =~ /every_(\d+)_hours/} keys %{$empire_config};
     $log->debug("Empire task hours ".join(' - ', @task_hour_keys));
     my $base_hour = $empire_config->{base_hour} || 0;
@@ -880,7 +899,8 @@ sub _build_ships {
 
     # Get all shipyards at this colony
     # We might want to sort by largest building level first, then ID so a level 22 shipyard comes first
-    my @ship_yards      = sort {$b->level <=> $a->level && $a->id <=> $b->id} @{$colony->building_type('Shipyard')};
+    my @ship_yards      = @{$colony->building_type('Shipyard')};
+    @ship_yards         = sort {$b->level <=> $a->level || $a->id <=> $b->id} @ship_yards;
     $log->info("There are ".scalar(@ship_yards)." ship yards on colony ".$colony->name);
 
     # Get all ships at this colony
@@ -924,6 +944,11 @@ sub _build_ships {
                     next SHIP_YARD;
                 }
                 if ($quick_ship_yard) {
+                    # quick_ship_yard should be a level 22
+                    if ($quick_ship_yard->level < 22) {
+                        $log->error("The quick build shipyard is not level 22!");
+                        last SHIP;
+                    }
                     $log->debug("Building ship type ".$ship_build->{type}." at level 22 ship yard");
                     last SHIP unless $quick_ship_yard->build_ship($ship_build->{type});
                 }

@@ -4,6 +4,7 @@ use Moose;
 use Carp;
 use Data::Dumper;
 use WWW::LacunaExpanse::API::DateTime;
+use WWW::LacunaExpanse::API::Captcha;
 
 extends 'WWW::LacunaExpanse::API::Building::Generic';
 
@@ -249,6 +250,44 @@ sub send_ship {
     my $body = $result->{result}{ship};
     my $arrival_date = WWW::LacunaExpanse::API::DateTime->from_lacuna_string($body->{date_arrives});
     return $arrival_date;
+}
+
+
+# Send a fleet of ships to a target
+#
+sub send_fleet {
+    my ($self, $ships, $target, $speed) = @_;
+
+    my $log = Log::Log4perl->get_logger('WWW::LacunaExpanse::API::Connection');
+
+TRY_AGAIN:
+    $speed = $speed || 0;
+    my @ship_ids = map {$_->id} @$ships;
+    my $result;
+    eval {
+        $result = $self->connection->call($self->url, 'send_fleet', [
+            $self->connection->session_id,
+            \@ship_ids,
+            $target,
+            $speed,
+            ]
+        );
+    };
+    if ($@) {
+        my ($rpc_error) = $@ =~ /RPC Error \((\d\d\d\d)\)/;
+        $log->error("RPC error is $rpc_error");
+        if ($rpc_error == 1016) {
+            my $captcha = WWW::LacunaExpanse::API::Captcha->new;
+            $captcha->fetch;
+        }
+        goto TRY_AGAIN;
+    }
+
+    # Should return a status block here.
+    # For now just return the fleet speed.
+    my $body = $result->{result}{fleet};
+#    $log->error(Dumper($body));
+    return $body->[0]{ship}{fleet_speed};
 }
 
 

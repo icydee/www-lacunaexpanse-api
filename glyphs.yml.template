@@ -3,6 +3,7 @@
 
 # Configuration for the empire for a whole.
 #
+#   stop_until_after:   stop running the script until after this time (for example if you are running out of RPC)
 #   glyph_search_algo   determines the algorithm to use to search for glyphs at the arch min.
 #                       currently only 'maximise_halls' is implemented which does what it says on the tin.
 #   base_hour:          The base hour from which to calculate when to do tasks. This is the hour on
@@ -18,6 +19,7 @@
 #                           parse_email         check email for excavator alerts, etc. and archive them
 #
 empire:
+    stop_until_after:   '2011/04/25 01:00:00'
     glyph_search_algo:  maximise_halls
     base_hour:          0
     glyph_ship_name:    'AI Glyph'

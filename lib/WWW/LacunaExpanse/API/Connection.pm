@@ -4,6 +4,7 @@ use MooseX::Singleton;
 
 use Log::Log4perl;
 use Data::Dump qw(dump);
+use Data::Dumper;
 use LWP::UserAgent;
 use JSON::RPC::Common::Marshal::HTTP;
 use Carp;
@@ -68,16 +69,16 @@ sub call {
         $self->log->debug("PATH $path : METHOD $method : params : xxxxxx");
     }
     else {
-        $self->log->debug("PATH $path : METHOD $method : params : ", join(' - ', @$params));
+        $self->log->debug("PATH $path : METHOD $method : params : ", join('-', @$params));
     }
 
     my $max_tries = 5;
 
     my $req;
-    TRIES:
-    while ($max_tries) {
+#    TRIES:
+#    while ($max_tries) {
         # TRY
-        eval {
+#        eval {
             $req = $self->marshal->call_to_request(
                 JSON::RPC::Common::Procedure::Call->inflate(
                     jsonrpc => "2.0",
@@ -87,17 +88,17 @@ sub call {
                 ),
                 uri => URI->new($self->uri.$path),
             );
-        };
+#        };
         # CATCH
-        if ($@) {
-            my $e = $@;
-            $self->log->debug("RETRY: ".(6 - $max_tries)." $e");
-            $max_tries--;
-        }
-        else {
-            last TRIES;
-        }
-    }
+#        if ($@) {
+#            my $e = $@;
+#            $self->log->debug("RETRY: ".(6 - $max_tries)." $e");
+#            $max_tries--;
+#        }
+#        else {
+#            last TRIES;
+#        }
+#    }
 
     $self->log->trace($req->as_string);
 #    if ($self->debug) {
@@ -134,7 +135,7 @@ sub call {
     }
     # throttle back a script so that it is less than 75 per minutes
     # sleep 1 will reduce it to less than 60 per minute
-    sleep 1;
+    sleep 2;
     return $deflated;
 
 
