@@ -6,7 +6,8 @@ use strict;
 use warnings;
 
 use FindBin qw($Bin);
-use FindBin::libs;
+use lib "$Bin/../lib";
+#use FindBin::libs;
 
 use Log::Log4perl;
 use Data::Dumper;
@@ -92,7 +93,7 @@ MAIN: {
             # Batch the ships into fleets of 10 ships
             $log->debug("Sending ".scalar(@send_ships)." ships to ".Dumper($target_hash->{to}));
             while (@send_ships) {
-                my @fleet = splice @send_ships, 0, 10;
+                my @fleet = splice @send_ships, 0, 20;
                 my $fleet_speed = $space_port->send_fleet(\@fleet, $target_hash->{to}, $target_hash->{speed});
                 $log->debug("Fleet speed is - $fleet_speed. Ships are ".join(' - ', map {$_->type} @fleet));
                 if ($fleet_speed == 0) {
@@ -104,7 +105,7 @@ MAIN: {
         else {
             $log->warn("We don't have enough ships to send!");
         }
-
+        $space_port->refresh;
 
     }
 
