@@ -923,8 +923,13 @@ sub _build_ships {
     SHIP:
     for my $ship_build (@ship_builds) {
         $log->info("Ship build ".$ship_build->{type});
-        my $ships_now   = grep {$_->type eq $ship_build->{type}} @all_ships;
-        my $ships_needed = $ship_build->{quota} - $ships_now;
+
+        my $ships_total     = grep {$_->type eq $ship_build->{type}} @all_ships;
+        my $ships_docked    = grep {$_->type eq $ship_build->{type} && $_->task eq 'Docked'} @all_ships;
+        my $quota           = $ship_build->{quota} || $ship_build->{docked_quota};
+        my $ships_needed    = $quota - ($ship_build->{quota} ? $ships_total : $ships_docked);
+        $log->debug("ships total $ships_total, ships_docked $ships_docked, quota $quota, ships needed $ships_needed");
+
         $log->info("Ships needed = $ships_needed");
         if ($ships_needed > 0) {
             $log->info("Ships needed = $ships_needed ship_yard = $ship_yard");

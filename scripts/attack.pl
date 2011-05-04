@@ -17,9 +17,7 @@ use List::Util qw(min max);
 use YAML::Any;
 
 use WWW::LacunaExpanse::API;
-use WWW::LacunaExpanse::Schema;
 use WWW::LacunaExpanse::API::DateTime;
-use WWW::LacunaExpanse::DB;
 
 # Load configurations
 
@@ -70,7 +68,7 @@ MAIN: {
         if ($we_have_all_ships) {
             $log->info("We can try to send the ships");
             # pull the ships off the @all_ships array
-            my $max_ship_speed = $target_hash->{speed} || 9999999999;
+            my $max_fleet_speed = $target_hash->{speed} || 9999999999;
             my @send_ships;
 
             SHIP_HASH:
@@ -80,7 +78,7 @@ MAIN: {
                 for my $ship (@all_ships) {
                     if ($ship->type eq $ship_type) {
 #                        $log->debug("Ship type $ship_type speed ".$ship->speed);
-                        $max_ship_speed = $max_ship_speed < $ship->speed ? $max_ship_speed : $ship->speed;
+                        $max_fleet_speed = $max_fleet_speed < $ship->speed ? $max_fleet_speed : $ship->speed;
                         # put the ship on send_ships and remove from all_ships
                         push @send_ships, $ship;
                         @all_ships = grep {$_->id != $ship->id} @all_ships;
@@ -89,12 +87,12 @@ MAIN: {
                     }
                 }
             }
-            $log->info("Max ship speed is $max_ship_speed");
+            $log->info("Max ship speed is $max_fleet_speed");
             # Batch the ships into fleets of 10 ships
             $log->debug("Sending ".scalar(@send_ships)." ships to ".Dumper($target_hash->{to}));
             while (@send_ships) {
                 my @fleet = splice @send_ships, 0, 20;
-                my $fleet_speed = $space_port->send_fleet(\@fleet, $target_hash->{to}, $target_hash->{speed});
+                my $fleet_speed = $space_port->send_fleet(\@fleet, $target_hash->{to}, $max_fleet_speed);
                 $log->debug("Fleet speed is - $fleet_speed. Ships are ".join(' - ', map {$_->type} @fleet));
                 if ($fleet_speed == 0) {
                     $log->error("Cannot send fleet to target");

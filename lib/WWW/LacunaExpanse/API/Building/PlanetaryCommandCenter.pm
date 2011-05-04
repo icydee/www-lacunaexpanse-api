@@ -25,6 +25,7 @@ sub _build_planet_stats {
     $self->_planet_stats('tbd');
 }
 
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 1;
