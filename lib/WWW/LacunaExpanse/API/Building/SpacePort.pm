@@ -119,42 +119,56 @@ sub count_ships {
 # Refresh the object from the Server
 #
 sub view_all_ships {
-    my ($self) = @_;
+    my ($self, $filter) = @_;
 
-    $self->connection->debug(0);
-    my $result = $self->connection->call($self->url, 'view_all_ships',[
-        $self->connection->session_id, $self->id, {no_paging => 1},
-    ]);
-    $self->connection->debug(0);
+    my $log = Log::Log4perl->get_logger('SpacePort');
+    my $items_per_page  = 500;
+    my $page_number     = 1;
 
-    $result = $result->{result};
-
-    $self->simple_strings($result, \@simple_strings_2);
-
-
-    # other strings
     my @ships;
-    for my $ship_hash (@{$result->{ships}}) {
 
-        my $ship = WWW::LacunaExpanse::API::Ship->new({
-            id              => $ship_hash->{id},
-            type            => $ship_hash->{type},
-            name            => $ship_hash->{name},
-            hold_size       => $ship_hash->{hold_size},
-            speed           => $ship_hash->{speed},
-            stealth         => $ship_hash->{stealth},
-            type_human      => $ship_hash->{type_human},
-            task            => $ship_hash->{task},
-            combat          => $ship_hash->{combat},
-            max_occupants   => $ship_hash->{max_occupants},
-            date_available  => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_available}),
-            date_started    => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_started}),
-            date_arrives    => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_arrives}),
-            from            => 'TBD',
-            to              => 'TBD',
-        });
+    SHIP:
+    while (1) {
+        $self->connection->debug(0);
+        my $result = $self->connection->call($self->url, 'view_all_ships',[
+            $self->connection->session_id,
+            $self->id,
+            {page_number => $page_number, items_per_page => $items_per_page},
+            $filter,
+        ]);
+        $self->connection->debug(0);
 
-        push @ships, $ship;
+        $result = $result->{result};
+
+        $self->simple_strings($result, \@simple_strings_2);
+
+        # other strings
+        my $ship_found = 0;
+        for my $ship_hash (@{$result->{ships}}) {
+            $ship_found++;
+            my $ship = WWW::LacunaExpanse::API::Ship->new({
+                id              => $ship_hash->{id},
+                type            => $ship_hash->{type},
+                name            => $ship_hash->{name},
+                hold_size       => $ship_hash->{hold_size},
+                speed           => $ship_hash->{speed},
+                stealth         => $ship_hash->{stealth},
+                type_human      => $ship_hash->{type_human},
+                task            => $ship_hash->{task},
+                combat          => $ship_hash->{combat},
+                max_occupants   => $ship_hash->{max_occupants},
+                date_available  => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_available}),
+                date_started    => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_started}),
+                date_arrives    => WWW::LacunaExpanse::API::DateTime->from_lacuna_string($ship_hash->{date_arrives}),
+                from            => 'TBD',
+                to              => 'TBD',
+            });
+
+            push @ships, $ship;
+        }
+        $log->debug("There were $ship_found ships found");
+        last SHIP unless $ship_found;
+        $page_number++;
     }
     $self->_ships(\@ships);
 }

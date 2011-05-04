@@ -43,28 +43,41 @@ MAIN: {
         my ($colony) = @{$empire->find_colony($target_hash->{from})};
         $log->debug("Sending ships from ".$colony->name." to ".$target_hash->{to});
 
-        # Get all ships at this colony
-        my $space_port = $colony->space_port;
-        my @all_ships = $space_port->all_ships;
+        # Find out what ships we need to send
+        my $ships_needed;
 
-        # ships need to be build!
-        @all_ships = grep {$_->task eq 'Docked'} @all_ships;
-        my @ships_to_send;
-
-        my $we_have_all_ships = 1;
-        # Collect all ships we need to send.
-        SHIP:
         for my $ship_hash (@{$target_hash->{ships}}) {
             my $ship_type = $ship_hash->{type};
-            $log->debug("Send ".$ship_hash->{qty}." $ship_type");
+            if (! defined $ships_needed->{$ship_type}) {
+                $ships_needed->{$ship_type} = 0;
+            }
+            $ships_needed->{$ship_type} += $ship_hash->{qty};
+        }
+
+        my $space_port = $colony->space_port;
+
+        # Get all the docked ships of those types at the spaceport
+        my @ship_types  = keys %$ships_needed;
+
+        $log->debug("Looking for ship types ".join('-',@ship_types));
+
+        my @all_ships   = @{$space_port->view_all_ships({task => 'Docked', type => \@ship_types})};
+
+        # Do we have enough ships of each type to send?
+        my $we_have_all_ships = 1;
+
+        SHIP:
+        for my $ship_type (@ship_types) {
+            $log->debug("Trying to send ".$ships_needed->{$ship_type}." ships of type $ship_type");
             # Do we have that many ships?
             my $qty = grep {$_->type eq $ship_type} @all_ships;
             $log->debug("We have $qty ships of type $ship_type to send");
-            if ($qty < $ship_hash->{qty}) {
+            if ($qty < $ships_needed->{$ship_type}) {
                 $we_have_all_ships = 0;
-                last SHIP;
+                $log->error("We don't have enough $ship_type ships to send");
             }
         }
+
         if ($we_have_all_ships) {
             $log->info("We can try to send the ships");
             # pull the ships off the @all_ships array
@@ -77,7 +90,6 @@ MAIN: {
                 my $ship_qty    = $ship_hash->{qty};
                 for my $ship (@all_ships) {
                     if ($ship->type eq $ship_type) {
-#                        $log->debug("Ship type $ship_type speed ".$ship->speed);
                         $max_fleet_speed = $max_fleet_speed < $ship->speed ? $max_fleet_speed : $ship->speed;
                         # put the ship on send_ships and remove from all_ships
                         push @send_ships, $ship;
@@ -92,7 +104,8 @@ MAIN: {
             $log->debug("Sending ".scalar(@send_ships)." ships to ".Dumper($target_hash->{to}));
             while (@send_ships) {
                 my @fleet = splice @send_ships, 0, 20;
-                my $fleet_speed = $space_port->send_fleet(\@fleet, $target_hash->{to}, $max_fleet_speed);
+                my $fleet_speed = 0;
+                $fleet_speed = $space_port->send_fleet(\@fleet, $target_hash->{to}, $max_fleet_speed);
                 $log->debug("Fleet speed is - $fleet_speed. Ships are ".join(' - ', map {$_->type} @fleet));
                 if ($fleet_speed == 0) {
                     $log->error("Cannot send fleet to target");
@@ -103,9 +116,5 @@ MAIN: {
         else {
             $log->warn("We don't have enough ships to send!");
         }
-        $space_port->refresh;
-
     }
-
-
 }

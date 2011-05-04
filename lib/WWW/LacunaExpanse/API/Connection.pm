@@ -69,7 +69,12 @@ sub call {
         $self->log->debug("PATH $path : METHOD $method : params : xxxxxx");
     }
     else {
-        $self->log->debug("PATH $path : METHOD $method : params : ", join('-', @$params));
+        if (defined $params && $params) {
+            $self->log->debug("PATH $path : METHOD $method : params : ", join('-',@$params));
+        }
+        else {
+            $self->log->debug("PATH $path : METHOD $method");
+        }
     }
 
     my $max_tries = 5;
@@ -114,6 +119,10 @@ sub call {
         select $ofh;
     }
     my $resp = $self->user_agent->request($req);
+    if ($resp->content =~ m/<html>/) {
+        print STDERR $resp->content;
+        die;
+    }
 
     my $res = $self->marshal->response_to_result($resp);
 
