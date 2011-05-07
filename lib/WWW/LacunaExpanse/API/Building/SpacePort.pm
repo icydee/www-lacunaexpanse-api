@@ -129,14 +129,12 @@ sub view_all_ships {
 
     SHIP:
     while (1) {
-        $self->connection->debug(0);
         my $result = $self->connection->call($self->url, 'view_all_ships',[
             $self->connection->session_id,
             $self->id,
             {page_number => $page_number, items_per_page => $items_per_page},
             $filter,
         ]);
-        $self->connection->debug(0);
 
         $result = $result->{result};
 

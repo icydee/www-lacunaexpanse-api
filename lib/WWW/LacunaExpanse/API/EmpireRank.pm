@@ -38,34 +38,6 @@ sub reset_empire {
     $self->page_number(1);
 }
 
-## Reset to the last record
-##
-#sub last {
-#    my ($self) = @_;
-#
-#    $self->index($self->total_empires - 1);
-#    return $self->next;
-#}
-#
-## Return the previous Empire in the Rank List
-##
-#sub previous {
-#    my ($self) = @_;
-#
-#    if ($self->index <= 0) {
-#        return;
-#    }
-#
-#    my $page_number = int($self->index / 25) + 1;
-#    if ($page_number != $self->page_number) {
-#        $self->page_number($page_number);
-#        $self->update;
-#    }
-#    my $empire_stat = $self->empire_stats->[$self->index % 25];
-#    $self->index($self->index - 1);
-#    return $empire_stat;
-#}
-
 # Return the next Empire in the Rank List
 #
 sub next_empire {

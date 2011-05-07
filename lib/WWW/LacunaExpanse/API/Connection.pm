@@ -64,18 +64,7 @@ sub _build_marshal {
 sub call {
     my ($self, $path, $method, $params) = @_;
 
-    # keep login username and password out of the log file
-    if ($method eq 'login') {
-        $self->log->debug("PATH $path : METHOD $method : params : xxxxxx");
-    }
-    else {
-        if (defined $params && $params) {
-            $self->log->debug("PATH $path : METHOD $method : params : ", join('-',@$params));
-        }
-        else {
-            $self->log->debug("PATH $path : METHOD $method");
-        }
-    }
+    $self->log->debug("API-CALL: PATH $path : METHOD $method");
 
     my $max_tries = 5;
 

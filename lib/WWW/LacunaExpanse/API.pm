@@ -20,6 +20,8 @@ use WWW::LacunaExpanse::API::Inbox;
 use WWW::LacunaExpanse::API::Spy;
 use WWW::LacunaExpanse::API::Species;
 use WWW::LacunaExpanse::API::Star;
+use WWW::LacunaExpanse::API::Stats;
+use WWW::LacunaExpanse::API::AllianceStat;
 use WWW::LacunaExpanse::API::Ore;
 use WWW::LacunaExpanse::API::Ores;
 use WWW::LacunaExpanse::API::DateTime;

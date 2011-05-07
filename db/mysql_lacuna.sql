@@ -203,3 +203,36 @@ CREATE TABLE glyph (
     foreign key(empire_id) references empire(id),
     primary key(server_id,empire_id,glyph_id)
 );
+
+CREATE TABLE alliance_stat (
+    server_id       integer not null,
+    alliance_id     integer not null,
+    on_date         varchar(24),
+
+    alliance_name   text,
+
+    foreign key(server_id) references server(id),
+    primary key(server_id,alliance_id,on_date)
+);
+
+CREATE TABLE empire_rank (
+    server_id       integer not null,
+    empire_id       integer not null,
+    alliance_id     integer,
+    on_date         varchar(24),
+
+    empire_name             text,
+    colony_count            integer,
+    population              float,
+    empire_size             float,
+    building_count          integer,
+    average_building_level  integer,
+    offense_success_rate    float,
+    defense_success_rate    float,
+    dirtiest                integer,
+
+    foreign key(server_id) references server(id),
+    foreign key(empire_id) references empire(id),
+    foreign key(alliance_id) references alliance(id),
+    primary key(server_id,empire_id,alliance_id,on_date)
+);

@@ -350,7 +350,9 @@ sub _send_excavators {
         return;
     }
 
-    my @excavators      = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
+    my @excavators = @{$space_port->view_all_ships({task => 'Docked', type => ['excavator']})};
+
+#    my @excavators      = $space_port->all_ships('excavator','Docked'); #<<<1+>>>#
     if ( ! @excavators) {
         $log->warn('There are no excavators to send');
         return;
