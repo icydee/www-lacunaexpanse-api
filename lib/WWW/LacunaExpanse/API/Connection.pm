@@ -108,6 +108,7 @@ sub call {
         select $ofh;
     }
     my $resp = $self->user_agent->request($req);
+
     if ($resp->content =~ m/<html>/) {
         print STDERR $resp->content;
         die;

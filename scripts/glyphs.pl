@@ -130,7 +130,9 @@ COLONY:
         build_probes                => \&_build_probes,
         send_probes                 => \&_send_probes,
         send_excavators             => \&_send_excavators,
-        transport_glyphs_and_plans  => \&_transport_glyphs_and_plans,
+        transport_glyphs_and_plans  => \&_transport_glyphs,
+        transport_glyphs            => \&_transport_glyphs,
+        transport_plans             => \&_transport_plans,
         transport_excavators        => \&_transport_excavators,
     };
 
@@ -622,9 +624,99 @@ ARCHAEOLOGY:
     }
 }
 
-# Transport glyphs and plans to the storage colony
+# Transport plans
 #
-sub _transport_glyphs_and_plans {
+sub _transport_plans {
+    my ($args) = @_;
+
+    my $log = Log::Log4perl->get_logger('MAIN::_transport_plans');
+    $log->info('_transport_plans');
+
+    my $colony          = $args->{colony};
+    my $empire          = $args->{empire};
+    my $config          = $args->{config};
+    my $colony_config   = $config->{colony}{$colony->name};
+
+    # Get the trade ministry
+    my $trade_ministry = $colony->trade_ministry;
+    if (! $trade_ministry) {
+        $log->warning('There is no trade ministry on '.$colony->name);
+        return;
+    }
+    my @plans = @{$trade_ministry->plans};
+
+    # Get the Space Port
+    my $space_port = $colony->space_port;
+    if (! $space_port) {
+        $log->error("Cannot find space port for colony ".$colony->name);
+        return;
+    }
+
+    # Get the plan ships
+    $log->info("Checking for docked plan ships");
+    my @all_ships = $space_port->all_ships;
+    my (@plan_ships) = grep {$_->name eq $config->{empire}{plan_ship_name} && $_->task eq 'Docked'} @all_ships;
+
+    my $plans_config = $colony_config->{plans};
+
+    if ($plans_config) {
+
+        my @plans_colony_names = keys %{$plans_config};
+        COLONY:
+        for my $plan_colony_name (@plans_colony_names) {
+
+            if (! @plan_ships) {
+                $log->warn("No more plan ships left at colony ".$colony->name);
+                last COLONY;
+            }
+
+            my ($plan_colony) = @{$empire->find_colony($plan_colony_name)};
+            if ($plan_colony) {
+                $log->info("Sending plans to $plan_colony_name");
+                # Find plans to send
+                my @plan_names = @{$plans_config->{$plan_colony_name}};
+                my @plans_to_send = ();
+                for my $plan_name (@plan_names) {
+                    $log->info("Searching for plan type $plan_name");
+                    push @plans_to_send, grep {$_->name eq $plan_name} @plans;
+                }
+                if (@plans_to_send) {
+                    $log->info("Sending ".scalar(@plans_to_send)." plans to $plan_colony_name");
+
+                    while (@plans_to_send && @plan_ships) {
+                        my $plan_ship = shift @plan_ships;
+
+                        # Max plans we can put on this ship
+                        my $max_plans = int($plan_ship->hold_size / 10000);
+                        my @plans_to_transport = splice @plans_to_send, 0, $max_plans;
+                        my @items = map { {type => 'plan', plan_id => $_->id} } @plans_to_transport;
+                        $log->debug("items ".join('-',@items));
+                        $trade_ministry->push_items($plan_colony, \@items, {ship_id => $plan_ship->id});
+                    }
+                }
+            }
+        }
+    }
+    return;
+
+#
+#    # put plans onto plan ships
+#    while (@plans && @plan_ships && $plan_colony) {
+#        $log->debug("Transporting Plans");
+#        my $plan_ship = shift @plan_ships;
+#        # max plans we can put on this ship
+#        my $max_plans = int($plan_ship->hold_size / @plans) * $trade_ministry->cargo_space_used_each;
+#        my @plans_to_transport = splice @plans, 0, $max_plans;
+#        my @items = map { {type => 'plan', plan_id => $_->id} } @plans_to_transport;
+#        $trade_ministry->push_items($plan_colony, \@items, {ship_id => $plan_ship->id});
+#    }
+}
+
+
+
+# Transport glyphs to the storage colony
+#
+sub _transport_glyphs {
     my ($args) = @_;
 
     my $log = Log::Log4perl->get_logger('MAIN::_transport_glyphs');
@@ -639,11 +731,6 @@ sub _transport_glyphs_and_plans {
         ($glyph_colony) = @{$empire->find_colony($glyph_colony)};
         $log->debug("Glyph colony is ".$glyph_colony->name);
     }
-    my $plan_colony     = $colony_config->{plan_colony};
-    if ($plan_colony) {
-        ($plan_colony)  = @{$empire->find_colony($plan_colony)};
-        $log->debug("Plan colony is ".$plan_colony->name);
-    }
 
     # Get the trade ministry
     my $trade_ministry = $colony->trade_ministry;
@@ -655,24 +742,17 @@ sub _transport_glyphs_and_plans {
     # Get the Space Port
     my $space_port = $colony->space_port;
 
-    # Get the glyph/plan transport ship(s)
-    my (@glyph_ships, @plan_ships);
+    # Get the glyph transport ship(s)
+    my @glyph_ships;
     my @all_ships = $space_port->all_ships;
 
     if ($glyph_colony && $glyph_colony->name ne $colony->name) {
         $log->debug("Checking for docked glyph ships");
         (@glyph_ships) = grep {$_->name eq $config->{empire}{glyph_ship_name} && $_->task eq 'Docked'} @all_ships;
     }
-    if ($plan_colony && $plan_colony->name ne $colony->name) {
-        $log->debug("Checking for docked plan ships");
-        (@plan_ships) = grep {$_->name eq $config->{empire}{plan_ship_name} && $_->task eq 'Docked'} @all_ships;
-    }
 
     if (! @glyph_ships && $glyph_colony) {
         $log->error("There are no glyph ships named ".$config->{empire}{glyph_ship_name}." on colony ".$colony->name);
-    }
-    if (! @plan_ships && $plan_colony) {
-        $log->error("There are no plan ships named ".$config->{empire}{plan_ship_name}." on colony ".$colony->name);
     }
     # check for glyphs
     $log->debug("Checking for glyphs to transport on ".$colony->name);
@@ -682,41 +762,20 @@ sub _transport_glyphs_and_plans {
         $log->info("There are ".scalar(@glyphs)." glyphs to transport");
     }
 
-    my @plans = @{$trade_ministry->plans};
-    if (@plans) {
-        $log->info("There are ".scalar(@plans)." plans to transport");
-    }
-
-    if (@plans && $plan_colony && @plan_ships < 1) {
-        $log->error("There are no ships named ".$config->{empire}{plan_ship_name}." docked to transport the plans");
-    }
-
     if (@glyphs && $glyph_colony && @glyph_ships < 1) {
         $log->error("There are no ships named ".$config->{empire}{glyph_ship_name}." docked to transport the glyphs");
     }
     $log->info("There are ".scalar(@glyph_ships)." glyph ships");
-    $log->info("There are ".scalar(@plan_ships)." plan ships");
 
     # put glyphs onto glyph ships
     my $storage_used = 0;
     while (@glyphs && @glyph_ships && $glyph_colony) {
         my $glyph_ship = shift @glyph_ships;
         # max glyphs we can put on this ship
-        my $max_glyphs = int($glyph_ship->hold_size / @glyphs) * 100;
+        my $max_glyphs = int($glyph_ship->hold_size / 100) ;
         my @glyphs_to_transport = splice @glyphs, 0, $max_glyphs;
         my @items = map { {type => 'glyph', glyph_id => $_->id} } @glyphs_to_transport;
         $trade_ministry->push_items($glyph_colony, \@items, {ship_id => $glyph_ship->id});
-    }
-
-    # put plans onto plan ships
-    while (@plans && @plan_ships && $plan_colony) {
-        $log->debug("Transporting Plans");
-        my $plan_ship = shift @plan_ships;
-        # max plans we can put on this ship
-        my $max_plans = int($plan_ship->hold_size / @plans) * $trade_ministry->cargo_space_used_each;
-        my @plans_to_transport = splice @plans, 0, $max_plans;
-        my @items = map { {type => 'plan', plan_id => $_->id} } @plans_to_transport;
-        $trade_ministry->push_items($plan_colony, \@items, {ship_id => $plan_ship->id});
     }
 }
 
@@ -913,7 +972,8 @@ sub _build_ships {
     my @ship_builds     = @{$colony_config->{ship_build}};
     my $quick_ship_yard;
     if ($colony_config->{quick_ship_build}) {
-        $quick_ship_yard = shift @ship_yards;
+        $quick_ship_yard = $ship_yards[0];
+#        $quick_ship_yard = shift @ship_yards;
     }
     # Remove shipyards we want to keep clear for personal use
     splice @ship_yards, 0, $colony_config->{free_shipyards};

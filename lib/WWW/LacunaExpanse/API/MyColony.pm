@@ -48,6 +48,7 @@ sub update_colony {
     # Incoming Foreign Ships
 }
 
+
 # Get a list of buildings (if any)
 #
 sub _build_buildings {
@@ -89,16 +90,17 @@ sub _build_buildings {
                 $name, {
                     id              => $id,
                     body_id         => $self->id,
+                    url             => $hash->{url},
+                    colony          => $self,
                     name            => $hash->{name},
                     x               => $hash->{x},
                     y               => $hash->{y},
-                    url             => $hash->{url},
+
                     level           => $hash->{level},
                     image           => $hash->{image},
                     efficiency      => $hash->{efficiency},
                     pending_build   => $pending_build,
                     work            => $work,
-                    colony          => $self,
                 }
             );
 
@@ -107,6 +109,39 @@ sub _build_buildings {
     }
     return \@buildings;
 }
+
+# Get co-ordinates of free building spaces (not plots)
+#
+sub get_free_building_spaces {
+    my ($self) = @_;
+
+    my $space_has_building;
+    for my $building (@{$self->buildings}) {
+        $space_has_building->{$building->x}{$building->y} = $building;
+    }
+    my @free_spaces;
+    for my $x (-5..5) {
+        for my $y (-5..5) {
+            if (! $space_has_building->{$x}{$y}) {
+                push @free_spaces, {x => $x, y => $y};
+            }
+        }
+    }
+    return \@free_spaces;
+}
+
+# Build a building
+#
+sub build_a_building {
+    my ($self, $name, $x, $y) = @_;
+
+    my $url = '/' . lc $name;
+
+    $self->connection->debug(1);
+    my $result = $self->connection->call($url, 'build',[$self->connection->session_id, $self->id, $x, $y]);
+    $self->connection->debug(0);
+}
+
 
 # Return the (first) space port for this colony
 #
