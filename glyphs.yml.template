@@ -64,11 +64,12 @@ empire:
 #     'glyph_colony' - the colony to transport glyphs to
 #     'plan_colony' - the colony to transport plans to (not yet implemented)
 #         under each period, specify the task name. these being.
-#             build_ships -     build ships according to the config in 'ship_build' above
-#             send_excavators - send excavators to the planets
-#             send_probes -     send probes to the stars
-#             transport_glyphs_and_plans - send glyphs (plans not currently implemented) to the 'glyph_colony'
-#
+#             build_ships -         build ships according to the config in 'ship_build' above
+#             send_excavators -     send excavators to the planets
+#             send_probes -         send probes to the stars
+#             transport_glyphs -    send glyphs to the specified colony
+#             transport_plans -     send plans to the specified colony
+
 colony:
 
     colony_name:
@@ -86,7 +87,8 @@ colony:
             - type:             excavator
               quota:            500
         every_12_hours:
-            - transport_glyphs_and_plans
+            - transport_glyphs
+            - transport_plans
         every_24_hours:
             - build_ships
             - send_excavators
@@ -106,8 +108,30 @@ colony:
               quota:            200
             - type:             excavator
               quota:            500
+        plans:
+            colony_name:
+              - Beach [1]
+              - Beach [2]
+              - Beach [3]
+              - Beach [4]
+              - Beach [5]
+              - Beach [6]
+              - Beach [7]
+              - Beach [8]
+              - Beach [9]
+              - Beach [10]
+              - Beach [11]
+              - Beach [12]
+              - Beach [13]
+              - Crater
+              - Grove of Trees
+              - Lagoon
+              - Lake
+              - Patch of Sand
+              - Rocky Outcropping
 
         every_4_hours:
             - build_ships
             - send_excavators
+            - transport_plans
 
