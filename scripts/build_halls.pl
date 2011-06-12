@@ -41,11 +41,18 @@ COLONY:
         # Only build halls on colonies specified in the config file
         next COLONY unless grep {$_ eq $colony->name} keys %$build_on;
 
+        $log->info("Building ".$build_on->{$colony->name}." halls on colony ".$colony->name);
+
+        if ($build_on->{$colony->name} > 99) {
+            $log->error("You are only allowed to build 99 Halls on a single colony");
+            next COLONY;
+        }
         $log->info("Build ".$build_on->{$colony->name}." halls on ".$colony->name);
 
         my $free_building_spaces = $colony->get_free_building_spaces;
 
 #        $log->debug(join (' - ', map {$_->name} @{$colony->buildings}));
+
         my $built_halls = grep {$_->name eq 'Halls of Vrbansk'} @{$colony->buildings};
         $log->debug("There are already $built_halls halls built");
 
@@ -56,10 +63,7 @@ COLONY:
             $log->info("Build on space x ".$space->{x}." y ".$space->{y});
             $colony->build_a_building('HallsOfVrbansk', $space->{x}, $space->{y});
             $built_halls++;
-            exit;
         }
-
-
     }
 }
 

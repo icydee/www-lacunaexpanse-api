@@ -135,11 +135,36 @@ sub get_free_building_spaces {
 sub build_a_building {
     my ($self, $name, $x, $y) = @_;
 
+    my $log = Log::Log4perl->get_logger('WWW::LacunaExpanse::API::MyColony');
+
     my $url = '/' . lc $name;
 
-    $self->connection->debug(1);
-    my $result = $self->connection->call($url, 'build',[$self->connection->session_id, $self->id, $x, $y]);
-    $self->connection->debug(0);
+    my $max_tries = 3;
+
+    TRIES:
+    while ($max_tries) {
+        # TRY
+        eval {
+            my $result = $self->connection->call($url, 'build',[$self->connection->session_id, $self->id, $x, $y]);
+        };
+        # CATCH
+        if ($@) {
+            my $e = $@;
+            if ($e =~ /\(1009\)/) {
+                $log->debug("RETRY: ".(4 - $max_tries)." $e");
+                $max_tries--;
+                # If we only wait 15 seconds, then every second build will fail
+                # so waiting longer is better (less RPC wasteage)
+                sleep 32;
+            }
+            else {
+                last TRIES;
+            }
+        }
+        else {
+            last TRIES;
+        }
+    }
 }
 
 
