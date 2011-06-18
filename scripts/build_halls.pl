@@ -47,7 +47,6 @@ COLONY:
             $log->error("You are only allowed to build 99 Halls on a single colony");
             next COLONY;
         }
-        $log->info("Build ".$build_on->{$colony->name}." halls on ".$colony->name);
 
         my $free_building_spaces = $colony->get_free_building_spaces;
 
@@ -61,7 +60,8 @@ COLONY:
             last SPACE if $built_halls >= $build_on->{$colony->name};
 
             $log->info("Build on space x ".$space->{x}." y ".$space->{y});
-            $colony->build_a_building('HallsOfVrbansk', $space->{x}, $space->{y});
+            my $success = $colony->build_a_building('HallsOfVrbansk', $space->{x}, $space->{y});
+            last SPACE if not $success;
             $built_halls++;
         }
     }

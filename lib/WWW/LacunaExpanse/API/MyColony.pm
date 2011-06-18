@@ -150,21 +150,23 @@ sub build_a_building {
         # CATCH
         if ($@) {
             my $e = $@;
-            if ($e =~ /\(1009\)/) {
+            if ($e =~ /\(1009\).*no room left in the build queue/) {
                 $log->debug("RETRY: ".(4 - $max_tries)." $e");
                 $max_tries--;
                 # If we only wait 15 seconds, then every second build will fail
                 # so waiting longer is better (less RPC wasteage)
-                sleep 32;
+                sleep 66;
             }
             else {
-                last TRIES;
+                $log->error($e);
+                return;
             }
         }
         else {
             last TRIES;
         }
     }
+    return 1;
 }
 
 
