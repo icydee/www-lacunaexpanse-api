@@ -169,6 +169,7 @@ sub view_all_ships {
         $page_number++;
     }
     $self->_ships(\@ships);
+    return $self->ships;
 }
 
 

@@ -26,6 +26,7 @@ has 'session_id'    => (is => 'rw');
 has 'debug'         => (is => 'rw', default => 0);
 has 'debug_hits'    => (is => 'rw', default => 0);
 has 'log'           => (is => 'rw', lazy_build => 1);
+has 'rpc_calls'     => (is => 'rw', default => 0);
 
 my $public_key      = 'c200634c-7feb-4001-8d70-d48eb3ff532c';
 
@@ -64,7 +65,11 @@ sub _build_marshal {
 sub call {
     my ($self, $path, $method, $params) = @_;
 
-    $self->log->debug("API-CALL: PATH $path : METHOD $method");
+    my $ps = '';
+    if ($params and @$params) {
+        $ps = join('|', @$params);
+    }
+    $self->log->debug("API-CALL: PATH $path : METHOD $method [$ps]");
 
     my $max_tries = 5;
 
@@ -120,16 +125,28 @@ sub call {
         Carp::croak("RPC Error (" . $res->error->code . "): " . $res->error->message);
     }
     my $deflated = $res->deflate;
-    if ($self->debug) {
+
+    my $rpc_count;
+    if (defined $deflated->{result}{empire}) {
+        $rpc_count = $deflated->{result}{empire}{rpc_count};
+    }
+    else {
+        $rpc_count = $deflated->{result}{status}{empire}{rpc_count};
+    }
+    $self->rpc_calls($rpc_count);
+#    $self->log->debug("RPC_CALLS: $rpc_count");
+
+    if (not $rpc_count) {
         print "\n############ response ###############\n";
         print "response = [".dump(\$deflated)."]\n";
         print "#######################################\n\n";
     }
 
     if (!$self->session_id                                          # Skip if we've already got it
-	and exists $deflated->{result}
-	and ref($deflated->{result}) eq 'HASH'                      # unauthenticated calls don't return a HASH ref
-	and exists $deflated->{result}{session_id}) {
+	    and exists $deflated->{result}
+	    and ref($deflated->{result}) eq 'HASH'                      # unauthenticated calls don't return a HASH ref
+	    and exists $deflated->{result}{session_id}) {
+
         $self->session_id($deflated->{result}{session_id});
     }
     # throttle back a script so that it is less than 75 per minutes
