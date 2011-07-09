@@ -1,4 +1,4 @@
-#!/home/icydee/localperl/bin/perl
+#!/usr/bin/perl
 
 # Manage various aspects of the empire (formerly known as glyphs.pl)
 #

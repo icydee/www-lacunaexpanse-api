@@ -1,4 +1,4 @@
-#!/home/icydee/localperl/bin/perl
+#!/usr/bin/perl
 
 # count the number of Halls of Verbansk.
 #
