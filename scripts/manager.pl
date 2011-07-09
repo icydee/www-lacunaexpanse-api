@@ -147,9 +147,10 @@ COLONY:
 
         # See if we have reached the RPC limit for this task today
         if ($api->connection->rpc_calls > $empire_config->{task_limits}{$task}) {
-            $log->error("RPC limit reached for task $task");
+            $log->error("RPC (".$api->connection->rpc_calls.") limit reached for task $task");
         }
         else {
+            $log->debug("RPC (".$api->connection->rpc_calls.") limit ok for $task");
             &$subroutine({
                 config      => $glyph_config,
                 schema      => $schema,
@@ -179,9 +180,10 @@ COLONY:
             # see if we have reached the RPC limit for this task today
             # See if we have reached the RPC limit for this task today
             if ($api->connection->rpc_calls > $empire_config->{task_limits}{$task}) {
-                $log->error("RPC limit reached for task $task");
+                $log->error("RPC (".$api->connection->rpc_calls.") limit reached for task $task");
             }
             else {
+                $log->debug("RPC (".$api->connection->rpc_calls.") limit ok for $task");
                 &$subroutine({
                     config      => $glyph_config,
                     schema      => $schema,
