@@ -1,4 +1,4 @@
-#!/home/icydee/localperl/bin/perl
+#!/usr/bin/perl
 
 # Convert all glyphs into halls at specified colonies
 
