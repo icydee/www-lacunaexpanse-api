@@ -35,7 +35,7 @@ MAIN: {
     my $colonies = $api->my_empire->colonies;
     my $hall_count = 0;
 
-    my ($colony) = grep {$_->name eq 'vom5'} @$colonies;
+    my ($colony) = grep {$_->name eq 'wae5'} @$colonies;
 
     my $trade_ministry = $colony->trade_ministry;
     if ($trade_ministry) {
