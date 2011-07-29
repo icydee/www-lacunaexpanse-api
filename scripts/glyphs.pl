@@ -107,12 +107,15 @@ COLONY:
         arch_min_search             => \&_arch_min_search,
         save_email                  => \&_save_email,
         build_ships                 => \&_build_ships,
+        scuttle_ships               => \&_scuttle_ships,
         build_excavators            => \&_build_excavators,
         build_probes                => \&_build_probes,
         send_probes                 => \&_send_probes,
         send_excavators             => \&_send_excavators,
         transport_glyphs_and_plans  => \&_transport_glyphs_and_plans,
         transport_excavators        => \&_transport_excavators,
+        upgrade_buildings           => \&_upgrade_buildings,
+        take_out_waste              => \&_take_out_waste,
     };
 
     # Do the empire wide tasks first.
@@ -158,6 +161,30 @@ COLONY:
         }
     }
     $log->info("Program completed");
+}
+
+sub _upgrade_buildings {
+    my ($args) = @_;
+
+    my $log = Log::Log4perl->get_logger('MAIN::_upgrade_buildings');
+    $log->info('_upgrade_buildings');
+
+    my $config = $args->{config};
+    my $colony = $args->{colony};
+    $log->info("Upgrading buildings on colony ".$colony->name);
+    my $api    = $args->{api};
+    my $colony_config = $config->{colony}{$colony->name};
+
+    my $con
+    # Get a list of all buildings on the colony
+
+    my @constructions = @{$colony_config->{construction}};
+    for my $construction (@constructions) {
+        # get all buildings of this type
+        my @buildings = grep {$_->name eq $construction->name } @{$colony->buildings};
+        
+    }
+    $log->info('DONE _upgrade_buildings');
 }
 
 
@@ -364,14 +391,32 @@ sub _send_excavators {
             # NOTE: send_ship will normally fail because of there being no body at the co-ordinates
             # however it could fail because of the 10k RPC limit in which case we need to handle
             # it differently.
-            my $success = $space_port->send_ship($first_excavator->id, {x => $x, y => $y}); #<<<1>>>#
-            if ($success) {
+            my $hash = $space_port->send_ship($first_excavator->id, {x => $x, y => $y}); #<<<1>>>#
+            if ($hash) {
                 $fail_count = 0;
                 shift @excavators;
+
+                # Since we are here we may as well store the ID and Name of the body
+                my $id      = $hash->{to_body}{id};
+                my $name    = $hash->{to_body}{name};
+                my $body    = $schema->resultset('Body')->find({server_id => 1, body_id => $id});
+                if (! $body) {
+                    $schema->resultset('Body')->create({
+                        server_id       => 1,
+                        body_id         => $id,
+                        orbit           => $next_excavated_orbit->val,
+                        name            => $name,
+                        x               => $x,
+                        y               => $y,
+                    });
+                }
+                $body->update({
+                    name    => $name,
+                });
             }
             else {
                 $fail_count++;
-                if ($fail_count == 30) {
+                if ($fail_count == 20) {
                     # Then it is not likely to be because we can't visit the body.
                     # it is more likely a server or RPC error, so terminate now
                     last EXCAVATOR;
@@ -441,8 +486,8 @@ sub _send_excavators {
             # No longer do API calls to check which excavators can be sent, just send them
             # and catch the exception. It takes 1 call rather than 4 per excavator sent.
             my $first_excavator = $excavators[0];
-            my $success = $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
-            if ($success) {
+            my $hash = $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
+            if ($hash) {
                 shift @excavators;
             }
         $db_body = $db_body_rs->next;
@@ -860,6 +905,44 @@ SHIPYARD:
     }
 }
 
+# Scuttle ships that are no longer needed
+# the config defines the ship 'type' the 'max_qty' - the maximum number of ships required
+# and the 'at_a_time' - the number of ships to scuttle each time through until 'max_qty' is reached
+#
+sub _scuttle_ships {
+    my ($args) = @_;
+
+    my $log             = Log::Log4perl->get_logger('MAIN::_scuttle_ships');
+    my $colony          = $args->{colony};
+    $log->info('_scuttle_ships at colony '.$colony->name);
+
+    my $config          = $args->{config};
+    my $colony_config   = $config->{colony}{$colony->name};
+
+    my $spaceport       = $colony->space_port;
+    my @all_ships       = $space_port->all_ships;
+
+    my @scuttles        = @{$colony_config->ship_scuttle};
+    for my $scuttle (@scuttles) {
+        $log->debug("Scuttling ships type ".$scuttle->{type});
+        my @ships = grep { $_->type eq $scuttle->type} @all_ships;
+        if (@ships > $scuttle->{max_qty}) {
+            $log->debug("We need to scuttle ships");
+            if (@ships > $scuttle->{at_at_time}) {
+               die "TODO: get 'at_a_time' ships off the array
+            }
+            # Scuttle these ships
+            for my $ship (@ships) {
+                die "TODO: scuttle a ship";
+            }
+        }
+        else {
+            $log->debug("No more ships to scuttle");
+        }
+    }
+
+}
+
 
 # Generic build ships routine.
 #
@@ -1146,6 +1229,7 @@ sub _next_star_to_probe {
     ### the database with them.
     if ($schema->resultset('Distance')->search({from_id => $centre_star->id})->count == 0) {
         # TO BE DONE... Calculate the distance from centre_star to all other stars and put in database
+        die "TODO: Calculate distance from centre star to all other stars and put in database";
     }
 
     my $thirty_days_ago = DateTime::Precise->new;

@@ -245,10 +245,9 @@ sub send_ship {
     }
 
     # Should return a status block here.
-    # For now just return the date it arrives.
+    # For now just return the hash of data received.
     my $body = $result->{result}{ship};
-    my $arrival_date = WWW::LacunaExpanse::API::DateTime->from_lacuna_string($body->{date_arrives});
-    return $arrival_date;
+    return $body;
 }
 
 

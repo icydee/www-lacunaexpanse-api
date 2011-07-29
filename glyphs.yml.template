@@ -54,10 +54,13 @@ empire:
 #
 #         under each period, specify the task name. these being.
 #             build_ships -     build ships according to the config in 'ship_build' above
+#             scuttle_ships -   remove unwanted ships
 #             send_excavators - send excavators to the planets
 #             send_probes -     send probes to the stars
 #             ship_glyphs -     send glyphs to the specified colony
-#             ship_plans -      send plans to the specified colony         
+#             ship_plans -      send plans to the specified colony
+#             upgrade_buildings - upgrade building levels
+#             take_out_waste -  reduce the waste on a colony
 #
 colony:
     far:
@@ -65,6 +68,15 @@ colony:
         base_hour:          0
         glyph_colony:       hw3
         plan_colony:        hw3
+        take_out_waste:
+            retain_waste:   1000000
+        upgrade_buildings:
+            - type:         spaceport
+              to_level:     12
+              max_queue_hr: 6
+            - type:         shipyard
+              to_level:     10
+              max_queue_hr: 6
         ship_build:
             - type:         excavator
               ship_yards:   12
@@ -74,9 +86,16 @@ colony:
               ship_yards:   4
               quota:        200
               max_queue:    4
+        ship_scuttle:
+            - type:         drone
+              max_qty:      100
+              at_a_time:    100
         every_2_hours:
             - do_this
+        every_4_hours:
+            - upgrade_buildings
         every_8_hours:
             - do_that
 
-
+        every_12_hours:
+            - take_out_waste
