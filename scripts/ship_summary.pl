@@ -1,4 +1,4 @@
-#!/home/icydee/localperl/bin/perl
+#!/usr/bin/perl
 
 # Print a summary of all ships in your empire in CSV format
 

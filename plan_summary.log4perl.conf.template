@@ -1,10 +1,9 @@
-######### glyph_manager.log4perl.conf #########
+######### glyph_summary.log4perl.conf #########
 
-log4perl.rootlogger                 = DEBUG,LOGFILE,SCREEN
+log4perl.rootlogger                 = INFO,LOGFILE,SCREEN
 
 log4perl.appender.LOGFILE           = Log::Log4perl::Appender::File
-# change this next line to the log file name, you might be able to make it a relative path
-log4perl.appender.LOGFILE.filename  = /var/sandbox/lacuna/log/glyph_manager.log
+log4perl.appender.LOGFILE.filename  = /var/sandbox/lacuna-from-icydee/log/plan_summary.log
 log4perl.appender.LOGFILE.mode      = append
 
 log4perl.appender.LOGFILE.layout    = Log::Log4perl::Layout::PatternLayout

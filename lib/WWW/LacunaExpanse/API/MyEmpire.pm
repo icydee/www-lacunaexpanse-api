@@ -89,7 +89,6 @@ sub find_colony {
 
     my @colonies;
     for my $colony (@{$self->colonies}) {
-#        print "Testing colony name [".$colony->name."] against [$name]\n";
         if ($colony->name =~ m/^$name/i) {
             push @colonies, $colony;
         }

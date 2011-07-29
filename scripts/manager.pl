@@ -1,6 +1,6 @@
-#!/home/icydee/localperl/bin/perl
+#!/usr/bin/perl
 
-# Manage Glyphs
+# Manage various aspects of the empire (formerly known as glyphs.pl)
 #
 use strict;
 use warnings;
@@ -23,13 +23,13 @@ use WWW::LacunaExpanse::DB;
 # Load configurations
 
 MAIN: {
-    Log::Log4perl::init("$Bin/../glyphs.log4perl.conf");
+    Log::Log4perl::init("$Bin/../manager.log4perl.conf");
 
     my $log = Log::Log4perl->get_logger('MAIN');
     $log->info('Program start');
 
     my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
-    my $glyph_config    = YAML::Any::LoadFile("$Bin/../glyphs.yml");
+    my $glyph_config    = YAML::Any::LoadFile("$Bin/../manager.yml");
     my $mysql_config    = YAML::Any::LoadFile("$Bin/../mysql.yml");
 
     my $now             = DateTime->now;
@@ -126,17 +126,13 @@ COLONY:
         arch_min_search             => \&_arch_min_search,
         save_email                  => \&_save_email,
         build_ships                 => \&_build_ships,
-        scuttle_ships               => \&_scuttle_ships,
-        build_excavators            => \&_build_excavators,
-        build_probes                => \&_build_probes,
         send_probes                 => \&_send_probes,
         send_excavators             => \&_send_excavators,
-        transport_glyphs_and_plans  => \&_transport_glyphs,
         transport_glyphs            => \&_transport_glyphs,
         transport_plans             => \&_transport_plans,
         transport_excavators        => \&_transport_excavators,
         upgrade_buildings           => \&_upgrade_buildings,
-        take_out_waste              => \&_take_out_waste,
+        trade_push                  => \&_trade_push,
     };
 
     # Do the empire wide tasks first.
@@ -148,12 +144,20 @@ COLONY:
             $log->error("Unknown Empire task: '$task'");
             next TASK;
         }
-        &$subroutine({
-            config      => $glyph_config,
-            schema      => $schema,
-            api         => $api,
-            empire      => $empire,
-        });
+
+        # See if we have reached the RPC limit for this task today
+        if ($api->connection->rpc_calls > $empire_config->{task_limits}{$task}) {
+            $log->error("RPC (".$api->connection->rpc_calls.") limit reached for task $task");
+        }
+        else {
+            $log->debug("RPC (".$api->connection->rpc_calls.") limit ok for $task");
+            &$subroutine({
+                config      => $glyph_config,
+                schema      => $schema,
+                api         => $api,
+                empire      => $empire,
+            });
+        }
     }
 
     # Do all the colony tasks
@@ -172,40 +176,45 @@ COLONY:
                 $log->error("Unknown Colony task: '$task'");
                 next TASK;
             }
-            &$subroutine({
-                config      => $glyph_config,
-                schema      => $schema,
-                api         => $api,
-                empire      => $empire,
-                colony      => $colony,
-            });
+
+            # see if we have reached the RPC limit for this task today
+            # See if we have reached the RPC limit for this task today
+            if ($api->connection->rpc_calls > $empire_config->{task_limits}{$task}) {
+                $log->error("RPC (".$api->connection->rpc_calls.") limit reached for task $task");
+            }
+            else {
+                $log->debug("RPC (".$api->connection->rpc_calls.") limit ok for $task");
+                &$subroutine({
+                    config      => $glyph_config,
+                    schema      => $schema,
+                    api         => $api,
+                    empire      => $empire,
+                    colony      => $colony,
+                });
+            }
         }
     }
     $log->info("Program completed");
 }
 
+####################################################################################
+### Upgrade buildings on a colony                                                ###
+####################################################################################
+
 sub _upgrade_buildings {
     my ($args) = @_;
 
-    my $log = Log::Log4perl->get_logger('MAIN::_upgrade_buildings');
+    my $log                 = Log::Log4perl->get_logger('MAIN::_upgrade_buildings');
     $log->info('_upgrade_buildings');
 
-    my $config = $args->{config};
-    my $colony = $args->{colony};
-    $log->info("Upgrading buildings on colony ".$colony->name);
-    my $api    = $args->{api};
-    my $colony_config = $config->{colony}{$colony->name};
+    my $config              = $args->{config};
+    my $colony              = $args->{colony};
 
-    my $con
-    # Get a list of all buildings on the colony
+    $log->info('Upgrading buildings on colony '.$colony->name);
+    my $api                 = $args->{api};
 
-    my @constructions = @{$colony_config->{construction}};
-    for my $construction (@constructions) {
-        # get all buildings of this type
-        my @buildings = grep {$_->name eq $construction->name } @{$colony->buildings};
-        
-    }
-    $log->info('DONE _upgrade_buildings');
+    my @buildings = @{$colony->buildings};
+
 }
 
 
@@ -414,32 +423,14 @@ sub _send_excavators {
             # NOTE: send_ship will normally fail because of there being no body at the co-ordinates
             # however it could fail because of the 10k RPC limit in which case we need to handle
             # it differently.
-            my $hash = $space_port->send_ship($first_excavator->id, {x => $x, y => $y}); #<<<1>>>#
-            if ($hash) {
+            my $success = $space_port->send_ship($first_excavator->id, {x => $x, y => $y}); #<<<1>>>#
+            if ($success) {
                 $fail_count = 0;
                 shift @excavators;
-
-                # Since we are here we may as well store the ID and Name of the body
-                my $id      = $hash->{to_body}{id};
-                my $name    = $hash->{to_body}{name};
-                my $body    = $schema->resultset('Body')->find({server_id => 1, body_id => $id});
-                if (! $body) {
-                    $schema->resultset('Body')->create({
-                        server_id       => 1,
-                        body_id         => $id,
-                        orbit           => $next_excavated_orbit->val,
-                        name            => $name,
-                        x               => $x,
-                        y               => $y,
-                    });
-                }
-                $body->update({
-                    name    => $name,
-                });
             }
             else {
                 $fail_count++;
-                if ($fail_count == 20) {
+                if ($fail_count == 30) {
                     # Then it is not likely to be because we can't visit the body.
                     # it is more likely a server or RPC error, so terminate now
                     last EXCAVATOR;
@@ -509,8 +500,8 @@ sub _send_excavators {
             # No longer do API calls to check which excavators can be sent, just send them
             # and catch the exception. It takes 1 call rather than 4 per excavator sent.
             my $first_excavator = $excavators[0];
-            my $hash = $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
-            if ($hash) {
+            my $success = $space_port->send_ship($first_excavator->id, {body_id => $db_body->id}); #<<<1>>>#
+            if ($success) {
                 shift @excavators;
             }
         $db_body = $db_body_rs->next;
@@ -669,6 +660,130 @@ ARCHAEOLOGY:
     }
 }
 
+# Trade Push
+#   Push resources to another planet
+sub _trade_push {
+    my ($args) = @_;
+
+    my $log = Log::Log4perl->get_logger('MAIN::_trade_push');
+    $log->info('_trade_push');
+
+    my $colony          = $args->{colony};
+    my $empire          = $args->{empire};
+    my $config          = $args->{config};
+    my $colony_config   = $config->{colony}{$colony->name};
+
+    # Get the trade ministry
+    my $trade_ministry = $colony->trade_ministry;
+    if (! $trade_ministry) {
+        $log->warning('There is no trade ministry on '.$colony->name);
+        return;
+    }
+
+    # Get the Space Port
+    my $space_port = $colony->space_port;
+    if (! $space_port) {
+        $log->error("Cannot find space port for colony ".$colony->name);
+        return;
+    }
+
+    # Get the trade ships
+    $log->info("Checking for docked trade push ships");
+
+    my @all_ships = @{$space_port->view_all_ships({task => 'Docked', tag => ['Trade']})};
+    my (@trade_ships) = grep {$_->name eq $config->{empire}{trade_ship_name} } @all_ships;
+
+#    $log->error(Dumper(@all_ships));
+
+    my $trade_config = $colony_config->{trade_push};
+#$log->error(Dumper($trade_config));
+
+    if ($trade_config) {
+        my @trade_colony_names = keys %{$trade_config};
+        COLONY:
+        for my $trade_colony_name (@trade_colony_names) {
+
+            if (! @trade_ships) {
+                $log->warn("No more trade ships left at colony ".$colony->name);
+                last COLONY;
+            }
+
+            my ($trade_colony) = @{$empire->find_colony($trade_colony_name)};
+
+            if ($trade_colony) {
+                $log->info("Pushing Trade to $trade_colony_name");
+
+                my @all_goods = @{$trade_config->{$trade_colony_name}};
+                my $goods       = shift @all_goods;
+
+                my $trade_ship  = shift @trade_ships;
+                my $hold_free;
+                if ($trade_ship) {
+                    $hold_free = $trade_ship->hold_size;
+                }
+
+                my @items = ();
+
+                SHIP:
+                while ($trade_ship and $goods) {
+                    $log->info("Pushing ".$goods->{type}." ".$goods->{quantity}." goods from ".$colony->name." to ".$trade_colony->name);
+
+                    if ($hold_free <= 0) {
+                        if (@items) {
+                            # SEND ship
+                            $log->debug("Sending items in ship ".$trade_ship->id." ".Dumper(\@items));
+                            $trade_ministry->push_items($trade_colony, \@items, {ship_id => $trade_ship->id});
+
+                            @items = ();
+                        }
+
+                        # Get another ship
+                        $trade_ship = shift @trade_ships;
+                        last SHIP if not $trade_ship;
+                        $hold_free  = $trade_ship->hold_size;
+                    }
+                    # put as much on the ship as it will carry.
+                    my $quantity;
+                    if ($goods->{quantity} < $hold_free) {
+                        $quantity = $goods->{quantity};
+                    }
+                    else {
+                        $quantity = $hold_free;
+                    }
+
+                    push @items, {
+                        type        => $goods->{type},
+                        quantity    => $quantity,
+                    };
+
+                    $hold_free -= $goods->{quantity};
+                    $goods->{quantity} -= $quantity;
+
+                    if ($goods->{quantity} <= 0) {
+                        # Get more goods to transfer
+                        $goods = shift @all_goods;
+                    }
+                }
+                # If there is anything on the ship, send it
+                if (@items) {
+                    $log->debug("Sending ship to ".$trade_colony->name.Dumper(@items));
+                    if ($trade_ship) {
+                        # SEND ship
+                        $log->debug("Sending items in ship ".$trade_ship->id." ".Dumper(\@items));
+                        $trade_ministry->push_items($trade_colony, \@items, {ship_id => $trade_ship->id});
+
+                    }
+                    else {
+                        $log->error("No more ships to send resources");
+                    }
+
+                    @items = ();
+                }
+            }
+        }
+    }
+}
+
 # Transport plans
 #
 sub _transport_plans {
@@ -699,8 +814,9 @@ sub _transport_plans {
 
     # Get the plan ships
     $log->info("Checking for docked plan ships");
-    my @all_ships = $space_port->all_ships;
-    my (@plan_ships) = grep {$_->name eq $config->{empire}{plan_ship_name} && $_->task eq 'Docked'} @all_ships;
+    my @all_ships = @{$space_port->view_all_ships({task => 'Docked', tag => ['Trade']})};
+
+    my (@plan_ships) = grep {$_->name eq $config->{empire}{plan_ship_name} } @all_ships;
 
     my $plans_config = $colony_config->{plans};
 
@@ -789,11 +905,11 @@ sub _transport_glyphs {
 
     # Get the glyph transport ship(s)
     my @glyph_ships;
-    my @all_ships = $space_port->all_ships;
+    my @all_ships = @{$space_port->view_all_ships({task => 'Docked', tag => ['Trade']})};
 
     if ($glyph_colony && $glyph_colony->name ne $colony->name) {
         $log->debug("Checking for docked glyph ships");
-        (@glyph_ships) = grep {$_->name eq $config->{empire}{glyph_ship_name} && $_->task eq 'Docked'} @all_ships;
+        (@glyph_ships) = grep {$_->name eq $config->{empire}{glyph_ship_name}} @all_ships;
     }
 
     if (! @glyph_ships && $glyph_colony) {
@@ -888,140 +1004,6 @@ TRANSPORT:
     }
 }
 
-# Build more Probes on our colony
-#
-#
-# This is to ensure that the observatory is kept fully occupied since
-# the excavators will abandon probes once they have excavated all available
-# bodies in a system.
-#
-# Leave some shipyards unused by this script so they can be used manually
-#
-sub _build_probes {
-    my ($args) = @_;
-
-    my $log = Log::Log4perl->get_logger('MAIN::_build_probes');
-    my $colony = $args->{colony};
-    $log->info('_build_probes at colony '.$colony->name);
-
-    my $config              = $args->{config};
-    my $colony_config       = $config->{colony}{$colony->name};
-
-    if ($colony_config->{dont_use_probes}) {
-        $log->info('We don\'t use probes at colony '.$colony->name);
-        return;
-    }
-
-    # Get all ship-yards at this colony
-    my @ship_yards          = sort {$a->id <=> $b->id} @{$colony->building_type('Shipyard')};
-    # shift off the shipyards we want to reserve for manual use. By sorting by ID these are always the same one's
-    splice @ship_yards, 0, $colony_config->{free_shipyards};
-
-    # Get all probes
-    my $space_port          = $colony->space_port;
-    my @colony_probes       = $space_port->all_ships('probe');
-    $log->info('There are currently '.scalar @colony_probes.' probes building, docked or travelling on '.$colony->name);
-
-    my $to_build            = $colony_config->{max_probes} - @colony_probes;
-    my $max_build_level     = $colony_config->{max_ship_build};
-
-    if ($to_build <= 0) {
-        $log->info('We have enough probes, no need to build more just yet');
-        return;
-    }
-    $log->info('We need to build a further '.$to_build.' probes');
-
-    my $cant_build_at;                  # if true, we can't build any more ships at this shipyard
-    my $ships_building_at;              # number of ships building at a shipyard
-    my $build_level = 1;
-
-    for my $shipyard (@ship_yards) {
-        my $ships_building = $shipyard->number_of_ships_building;
-        if ($ships_building == 0) {
-            # then we are not using the full capacity of our shipyards.
-        }
-        elsif ($ships_building > 1) {
-            # then we are stacking too many ships at our shipyards
-        }
-        $ships_building_at->{$shipyard->id} = $ships_building;
-    }
-
-    $log->info("to_build $to_build, build_level $build_level, max_build_level $max_build_level");
-BUILD:
-    while ($to_build && $build_level <= $max_build_level) {
-        my $at_least_one_built;
-
-SHIPYARD:
-        for my $shipyard (@ship_yards) {
-
-            # Ignore shipyards previously flagged as not being able to build
-            # NOTE TO SELF. Presumably, if we can't build at one shipyard, we can't build at any
-            next SHIPYARD if $cant_build_at->{$shipyard->id};
-
-            if ($ships_building_at->{$shipyard->id} < $build_level) {
-                # Build a probe here
-
-                $log->info('Building '.$ships_building_at->{$shipyard->id}.' ships at shipyard '.$shipyard->colony->name.' '.$shipyard->x.'/'.$shipyard->y);
-
-                if ( ! $shipyard->build_ship('probe') ) {
-                    # We can't build at this shipyard any more
-                    $cant_build_at->{$shipyard->id} = 1;
-                    # NOTE TO SELF. Presumably, if we can't build at one shipyard on this colony, we can't build at any
-                    # in which case this next line should be 'last BUILD'?
-                    next SHIPYARD;
-                }
-                $to_build--;
-                $at_least_one_built = 1;
-                $ships_building_at->{$shipyard->id}++;
-                last BUILD if ! $to_build;
-            }
-        }
-        if ( ! $at_least_one_built) {
-            $build_level++;
-        }
-    }
-    if ($to_build) {
-        # then we don't have enough capacity at our shipyards
-    }
-}
-
-# Scuttle ships that are no longer needed
-# the config defines the ship 'type' the 'max_qty' - the maximum number of ships required
-# and the 'at_a_time' - the number of ships to scuttle each time through until 'max_qty' is reached
-#
-sub _scuttle_ships {
-    my ($args) = @_;
-
-    my $log             = Log::Log4perl->get_logger('MAIN::_scuttle_ships');
-    my $colony          = $args->{colony};
-    $log->info('_scuttle_ships at colony '.$colony->name);
-
-    my $config          = $args->{config};
-    my $colony_config   = $config->{colony}{$colony->name};
-
-    my $spaceport       = $colony->space_port;
-    my @all_ships       = $space_port->all_ships;
-
-    my @scuttles        = @{$colony_config->ship_scuttle};
-    for my $scuttle (@scuttles) {
-        $log->debug("Scuttling ships type ".$scuttle->{type});
-        my @ships = grep { $_->type eq $scuttle->type} @all_ships;
-        if (@ships > $scuttle->{max_qty}) {
-            $log->debug("We need to scuttle ships");
-            if (@ships > $scuttle->{at_at_time}) {
-               die "TODO: get 'at_a_time' ships off the array
-            }
-            # Scuttle these ships
-            for my $ship (@ships) {
-                die "TODO: scuttle a ship";
-            }
-        }
-        else {
-            $log->debug("No more ships to scuttle");
-        }
-    }
-
-}
 
 
 # Generic build ships routine.
@@ -1116,119 +1098,6 @@ sub _build_ships {
     }
 }
 
-# Build more excavators on this colony.
-#
-# Order the shipyards by build queue size (smallest first)
-# Iterate through the shipyards adding one more excavator to each queue
-# in a way that ensure that we level up all lower level queues
-# so that they are all equal to or less than the 'max_ship_build' config
-# value
-#
-# Ideally each queue should be just finishing it's last ship the next time
-# this routine is called. If it is empty, we are not utilising our build
-# capacity to it's maximum, if more than one, we are blocking the queue.
-#
-sub _build_excavators {
-    my ($args) = @_;
-
-    my $log = Log::Log4perl->get_logger('MAIN::_build_excavators');
-    my $colony = $args->{colony};
-    $log->info('_build_excavators at colony '.$colony->name);
-
-    my $config              = $args->{config};
-    my $colony_config       = $config->{colony}{$colony->name};
-    my $free_shipyards      = $colony_config->{free_shipyards} || 0;
-    my $max_ship_build      = $colony_config->{max_ship_build} || 0;
-    my $max_excavators      = $colony_config->{max_excavators} || 0;
-
-    # Get all ship-yards at this colony
-    my @ship_yards          = sort {$a->id <=> $b->id} @{$colony->building_type('Shipyard')};
-
-    $log->debug("keep $free_shipyards shipyards clear ");
-    $log->debug("there are ".scalar @ship_yards." shipyards");
-    # remove shipyards we need to keep free;
-    splice @ship_yards, 0, $free_shipyards;
-    $log->debug("there are ".scalar @ship_yards." shipyards we can use to build excavators");
-
-    my $space_port          = $colony->space_port;
-
-    # Get all excavators
-    my @colony_excavators   = $space_port->all_ships('excavator');
-    $log->info('There are currently '.scalar @colony_excavators.' excavators building, docked or travelling on '.$colony->name);
-
-    my $to_build            = $max_excavators - scalar @colony_excavators;
-
-    if ($to_build <= 0) {
-        $log->info('No more excavators need to be build at this time on colony '.$colony->name);
-        return;
-    }
-    $log->info('We need to produce a further '.$to_build.' excavators');
-
-    my @shipyards_buildable = (@ship_yards);
-
-    # Order all shipyards by the build queue size (increasing) which are below the max build queue size
-    my @shipyards_sorted;
-    for my $shipyard (sort {$a->number_of_ships_building <=> $b->number_of_ships_building} @ship_yards) {
-        $log->debug("Shipyard on colony ".$shipyard->colony->name." plot ".$shipyard->x."/".$shipyard->y." has ".$shipyard->number_of_ships_building." ships building");
-        if ($shipyard->number_of_ships_building < $max_ship_build) {
-            push @shipyards_sorted, {shipyard => $shipyard, ships_building => $shipyard->number_of_ships_building, docks_max => $shipyard->level};
-        }
-    }
-
-    # Distribute the building among those shipyards that can build
-    # since the shipyards are sorted by the number of ships building we will have patterns like
-    # 0,0,0,1,2,2,5 for the number of ships building
-    # we can  make several passes through the data so the ships are built in the shortest queues first
-    # taking into account those shipyards which can't build any more (due to lack of space or resources)
-    # We don't bother taking into account of the build times of all the shipyards.
-    #
-    my $min_free = 0;
-    my $cant_build_at;                  # hash of shipyards we can't build at
-    EXCAVATOR:
-    while ($to_build && $min_free < $max_ship_build) {
-
-        my $at_least_one_built = 0;
-        SHIPYARD:
-        for my $shipyard_hash (@shipyards_sorted) {
-            my $shipyard = $shipyard_hash->{shipyard};
-            # Ignore shipyards previously flagged as not being able to build
-            next SHIPYARD if $cant_build_at->{$shipyard->id};
-            # Don't build more ships than the building level
-#            $log->error("SHIPYARD LEVEL: ".$shipyard_hash->{docks_max});
-#            $log->error("SHIPYARD BUILDING: ".$shipyard_hash->{ships_building});
-            next SHIPYARD if $shipyard_hash->{ships_building} >= $shipyard_hash->{docks_max};
-
-            if ($min_free < $shipyard_hash->{ships_building}) {
-                # start again at the beginning of the shipyard list
-                $log->debug('Start building at the first shipyard again');
-                $min_free++;
-                next EXCAVATOR;
-            }
-
-            # then build a ship
-            $log->debug("Building excavator at shipyard ".$shipyard->colony->name." ".$shipyard->id." ".$shipyard->x."/".$shipyard->y." min_free = $min_free ships_building = ".$shipyard_hash->{ships_building});
-            if ( ! $shipyard->build_ship('excavator') ) {
-                # We can't build at this shipyard any more
-                $cant_build_at->{$shipyard->id} = 1;
-                # NOTE TO SELF. Presumably, if we can't build at this shipyard, we can't build at any shipyard
-                # and so the next line should be 'last EXCAVATOR'
-                last EXCAVATOR;
-            }
-            $shipyard_hash->{ships_building}++;
-            $shipyard_hash->{docks_available}--;
-            $to_build--;
-            $at_least_one_built = 1;
-            last EXCAVATOR if $to_build <= 0;
-        }
-
-        unless ( $at_least_one_built ) {
-            $log->warn('No more shipyards available');
-            last EXCAVATOR;
-        }
-        $log->info('Increment min_free');
-        $min_free++;
-    }
-}
 
 # Save probe data in database
 
@@ -1331,7 +1200,6 @@ sub _next_star_to_probe {
     ### the database with them.
     if ($schema->resultset('Distance')->search({from_id => $centre_star->id})->count == 0) {
         # TO BE DONE... Calculate the distance from centre_star to all other stars and put in database
-        die "TODO: Calculate distance from centre star to all other stars and put in database";
     }
 
     my $thirty_days_ago = DateTime::Precise->new;

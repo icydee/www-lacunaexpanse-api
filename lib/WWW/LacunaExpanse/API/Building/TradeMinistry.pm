@@ -4,6 +4,7 @@ use Moose;
 use Carp;
 use Data::Dumper;
 use WWW::LacunaExpanse::API::Glyph;
+use Log::Log4perl;
 
 extends 'WWW::LacunaExpanse::API::Building::Generic';
 
@@ -55,12 +56,18 @@ sub get_plans {
 sub push_items {
     my ($self, $target, $items, $options) = @_;
 
+    my $log = Log::Log4perl->get_logger('WWW::LacunaExpanse::API::Building::TradeMinistry');
+
+#    $log->debug("Items = ".Dumper($items));
+#    $log->debug("options = ".Dumper($options));
+
     my $result;
     eval {
         my $result = $self->connection->call($self->url, 'push_items',[
             $self->connection->session_id, $self->id, $target->id, $items, $options]);
     };
     if ($@) {
+        $log->error($@);
         return;
     }
 

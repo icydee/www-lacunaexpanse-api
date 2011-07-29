@@ -1,0 +1,58 @@
+#
+# Send fleet to a target.
+#
+targets:
+#    -   to:
+#            body_name:  'Columbia Falls'
+#        speed:      2000
+#        ships:
+#            - type: sweeper
+#              qty:  100
+#            - type: snark2
+#              qty:  350
+#        from:       hw3
+
+#    -   to:
+#            body_name:  'Mosquito Flats'
+#        speed:      2000
+#        ships:
+#            - type: sweeper
+#              qty:  80
+#            - type: snark2
+#              qty:  350
+#        from:       hw3
+#
+#    -   to:
+#            body_name:  'Coram'
+#        speed:      2000
+#        ships:
+#            - type: sweeper
+#              qty:  100
+#            - type: snark2
+#              qty:  350
+#        from:       hw3
+#
+#    -   to:
+#            body_name:  'Missoula'
+#        speed:      2000
+#        ships:
+#            - type: sweeper
+#              qty:  100
+#            - type: snark2
+#              qty:  350
+#        from:       hw3
+#
+    -   to:
+            body_name:  'Whitefish'
+        speed:      2000
+        ships:
+            - type: sweeper
+              qty:  100
+            - type: snark2
+              qty:  350
+        from:       hw3
+
+
+
+
+
