@@ -1,5 +1,12 @@
 #!/home/icydee/localperl/bin/perl
 
+########
+######## This script has been superceeded by manager.pl and should no longer be used
+# NOTE # however some experimental code, e.g. take_out_waste, is still in here and 
+######## will be transferred to manager.pl when it has been tested fully.
+########
+
+
 # Manage Glyphs
 #
 use strict;
