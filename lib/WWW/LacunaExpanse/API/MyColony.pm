@@ -188,6 +188,15 @@ sub observatory {
     return $observatory;
 }
 
+# Return the (only) mercenaries guild for this colony
+#
+sub mercenaries_guild {
+    my ($self) = @_;
+
+    my ($merc_guild) = grep {$_->name eq 'MercenariesGuild'} @{$self->buildings};
+    return $merc_guild;
+}
+
 # Return the (first) shipyard for this colony
 #
 sub shipyard {
