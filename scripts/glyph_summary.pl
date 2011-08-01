@@ -1,4 +1,4 @@
-#!/home/icydee/localperl/bin/perl
+#!/usr/bin/perl
 
 # Carry out a survey of all colonies, check in all the archaeology ministries
 # and get a total of all glyphs held by the empire
