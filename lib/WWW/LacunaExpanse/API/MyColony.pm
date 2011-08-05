@@ -169,6 +169,14 @@ sub build_a_building {
     return 1;
 }
 
+# Return the Intelligence Ministry for this colony
+#
+sub intelligence {
+    my ($self) = @_;
+
+    my ($intelligence) = grep {$_->name eq 'Intelligence Ministry'} @{$self->buildings};
+    return $intelligence;
+}
 
 # Return the (first) space port for this colony
 #
@@ -193,7 +201,7 @@ sub observatory {
 sub mercenaries_guild {
     my ($self) = @_;
 
-    my ($merc_guild) = grep {$_->name eq 'MercenariesGuild'} @{$self->buildings};
+    my ($merc_guild) = grep {$_->name eq 'Mercenaries Guild'} @{$self->buildings};
     return $merc_guild;
 }
 

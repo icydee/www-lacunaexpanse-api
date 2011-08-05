@@ -28,6 +28,12 @@ TRY_AGAIN:
 #    $log->error("CAPTCHA: GUID=$guid");
     $log->error("SOLVE THE CAPTCHA: URL=$url");
 
+    # Solve the Captcha by posting it to Hurrafia's web site
+
+
+
+
+
     print "Give the solution to the captcha (and press return) :";
     my $captcha = <>;
     chomp $captcha;

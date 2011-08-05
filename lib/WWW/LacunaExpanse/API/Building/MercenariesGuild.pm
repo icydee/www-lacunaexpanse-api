@@ -1,4 +1,4 @@
-package WWW::LacunaExpanse::API::Building::MercenariesCommand;
+package WWW::LacunaExpanse::API::Building::MercenariesGuild;
 
 use Moose;
 use Carp;
@@ -35,7 +35,23 @@ sub get_spies {
 sub accept_from_market {
     my ($self, $trade_id) = @_;
 
-    my $result = $self->connection->call($self->url, 'accept_from_market', [$self->connection->session_id, $self->id, $trade_id]);
+
+    my $log = Log::Log4perl->get_logger('WWW::LacunaExpanse::API::Building::MercenariesGuild');
+
+    TRY_AGAIN:
+    my $result;
+    eval {
+        $result = $self->connection->call($self->url, 'accept_from_market', [$self->connection->session_id, $self->id, $trade_id]);
+    };
+    if ($@) {
+        my ($rpc_error) = $@ =~ /RPC Error \((\d\d\d\d)\)/;
+        $log->error("RPC error is $rpc_error");
+        if ($rpc_error == 1016) {
+            my $captcha = WWW::LacunaExpanse::API::Captcha->new;
+            $captcha->fetch;
+        }
+        goto TRY_AGAIN;
+    }
 }
 
 # Add a trade to the market
@@ -44,7 +60,8 @@ sub accept_from_market {
 sub add_to_market {
     my ($self, $spy, $ask, $ship) = @_;
 
-    my $result = $self->connection->call($self->url, 'add_to_market', [$self->connection->session_id, $self->id, $spy->id, $ask, defined $ship ? $ship->id : undef);
+    my $ship_id = defined $ship ? $ship->id : undef;
+    my $result = $self->connection->call($self->url, 'add_to_market', [$self->connection->session_id, $self->id, $spy->id, $ask, $ship_id]);
     my $trade_id = $result->{result}{trade_id};
 
     return $trade_id;

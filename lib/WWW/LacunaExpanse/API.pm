@@ -35,6 +35,8 @@ use WWW::LacunaExpanse::API::Building::GeneticsLab;
 use WWW::LacunaExpanse::API::Building::TradeMinistry;
 use WWW::LacunaExpanse::API::Building::ArchaeologyMinistry;
 use WWW::LacunaExpanse::API::Building::PlanetaryCommandCenter;
+use WWW::LacunaExpanse::API::Building::MercenariesGuild;
+use WWW::LacunaExpanse::API::Building::IntelligenceMinistry;
 
 # This is the base class for the API
 

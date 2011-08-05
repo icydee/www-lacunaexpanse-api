@@ -64,7 +64,7 @@ COLONY:
     my $merc_guild_transfer     = $transfer_to_colony->mercenaries_guild;
 
     # The training colony should have an intelligence ministry
-    my $intel_ministry          = $train_on_colony->intelligence_ministry;
+    my $intel_ministry          = $train_on_colony->intelligence;
 
     if (not defined $merc_guild_train) {
         $log->fatal("No mercenaries guild on colony ".$train_on_colony->name);
@@ -79,21 +79,50 @@ COLONY:
         exit;
     }
 
+    # This script only works if the intel ministry is initially empty
+    my $spies_current = $intel_ministry->current;
+    $log->info("There are currently $spies_current spies in the intelligence ministry");
+
+    my $spies;
+
     # We cycle continuously until stopped with a Ctrl-C
     while (1) {
 
         # Build the maximum allotment of spies on the training colony
+        my $spies_to_train = $intel_ministry->maximum - $intel_ministry->current;
+        $log->info("Training $spies_to_train spies on colony ".$train_on_colony->name);
+        while ($spies_to_train) {
+            # train spies
+            my $spy_batch = $spies_to_train <= 5 ? $spies_to_train : 5;
+            $spies_to_train -= $spy_batch;
+            my $spies_trained = $intel_ministry->train_spy($spy_batch);
+            if ($spies_trained != $spy_batch) {
+                $log->error("Could only train $spies_trained spies out of a total of $spy_batch");
+            }
+        }
 
         # Wait the training period
         $log->info("Sleeping for ".$config->{training_delay}." minutes while training takes place");
-        sleep $config->{training_delay} * 60;
+#        sleep $config->{training_delay} * 60;
 
-        # Purchase the trained spies from the transfer colony
+        # Get a list of all our trained spies, put them up for sale
+        my $all_spies = $intel_ministry->all_spies;
+        for my $spy (@$all_spies) {
+            $log->debug("Putting spy $spy [".Dumper($spy)."] up for sale");
+            $spies->{$spy->id} = $spy;
+        }
+        for my $spy_id (keys %$spies) {
+            # Put the spy up for sale on our training colony
+            $log->debug("Trading spy $spy_id");
+            my $trade_id = $merc_guild_train->add_to_market($spies->{$spy_id}, 10);
+
+            # Purchase the spy on the transfer colony
+            $merc_guild_transfer->accept_from_market($trade_id);
+        }
 
         # Wait the transfer period
         $log->info("Sleeping for ".$config->{transfer_delay}." minutes while the transfer takes place");
         sleep $config->{transfer_delay} * 60;
-
     }
 }
 

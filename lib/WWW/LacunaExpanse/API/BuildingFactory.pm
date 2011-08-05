@@ -16,6 +16,8 @@ my $specials = {
     PlanetaryCommandCenter  => 1,
     TradeMinistry           => 1,
     HallsOfVrbansk          => 1,
+    IntelligenceMinistry    => 1,
+    MercenariesGuild        => 1,
 };
 
 implementation_class_via sub {

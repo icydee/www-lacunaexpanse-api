@@ -13,7 +13,7 @@ has 'politics'              => (is => 'ro');
 has 'theft'                 => (is => 'ro');
 has 'intel'                 => (is => 'ro');
 has 'offense_rating'        => (is => 'ro');
-has 'defence_rating'        => (is => 'ro');
+has 'defense_rating'        => (is => 'ro');
 has 'possible_assignments'  => (is => 'ro');
 has 'seconds_remaining'     => (is => 'ro');
 has 'started_assignment'    => (is => 'ro');
