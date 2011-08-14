@@ -103,7 +103,7 @@ COLONY:
 
         # Wait the training period
         $log->info("Sleeping for ".$config->{training_delay}." minutes while training takes place");
-#        sleep $config->{training_delay} * 60;
+        sleep $config->{training_delay} * 60;
 
         # Get a list of all our trained spies, put them up for sale
         my $all_spies = $intel_ministry->all_spies;
@@ -111,8 +111,12 @@ COLONY:
             $log->debug("Putting spy $spy [".Dumper($spy)."] up for sale");
             $spies->{$spy->id} = $spy;
         }
+        SPY:
         for my $spy_id (keys %$spies) {
             # Put the spy up for sale on our training colony
+            my $spy = $spies->{$spy_id};
+            next SPY unless $spy->is_available;
+
             $log->debug("Trading spy $spy_id");
             my $trade_id = $merc_guild_train->add_to_market($spies->{$spy_id}, 10);
 

@@ -67,7 +67,7 @@ sub call {
 
     my $ps = '';
     if ($params and @$params) {
-        $ps = join('|', @$params);
+        $ps = join('|', map {defined $_ ? $_ : ''} @$params);
     }
     $self->log->debug("API-CALL: PATH $path : METHOD $method [$ps]");
 

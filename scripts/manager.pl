@@ -14,6 +14,7 @@ use DateTime;
 use DateTime::Precise;
 use List::Util qw(min max);
 use YAML::Any;
+use Getopt::Long;
 
 use WWW::LacunaExpanse::API;
 use WWW::LacunaExpanse::Schema;
@@ -23,14 +24,27 @@ use WWW::LacunaExpanse::DB;
 # Load configurations
 
 MAIN: {
-    Log::Log4perl::init("$Bin/../manager.log4perl.conf");
+
+    my $log4perl_conf   = "$Bin/../manager.log4perl.conf";
+    my $account_yml     = "$Bin/../myaccount.yml";
+    my $config_yml      = "$Bin/../manager.yml";
+    my $mysql_yml       = "$Bin/../mysql.yml";
+
+    my $result = GetOptions(
+        'log4perl=s'    => \$log4perl_conf,
+        'account=s'     => \$account_yml,
+        'config=s'      => \$config_yml,
+        'mysql=s'       => \$mysql_yml,
+    );
+
+    Log::Log4perl::init($log4perl_conf);
 
     my $log = Log::Log4perl->get_logger('MAIN');
     $log->info('Program start');
 
-    my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
-    my $glyph_config    = YAML::Any::LoadFile("$Bin/../manager.yml");
-    my $mysql_config    = YAML::Any::LoadFile("$Bin/../mysql.yml");
+    my $my_account      = YAML::Any::LoadFile($account_yml);
+    my $glyph_config    = YAML::Any::LoadFile($config_yml);
+    my $mysql_config    = YAML::Any::LoadFile($mysql_yml);
 
     my $now             = DateTime->now;
     my $current_day     = $now->dow - 1;     # 0 == Monday
@@ -1031,7 +1045,6 @@ sub _build_ships {
 
     # Get all ships at this colony
     my $space_port      = $colony->space_port;
-    my @all_ships       = $space_port->all_ships;
 
     # Get the shipyards at this colony
     my @ship_builds     = @{$colony_config->{ship_build}};
@@ -1051,8 +1064,10 @@ sub _build_ships {
     for my $ship_build (@ship_builds) {
         $log->info("Ship build ".$ship_build->{type});
 
-        my $ships_total     = grep {$_->type eq $ship_build->{type}} @all_ships;
-        my $ships_docked    = grep {$_->type eq $ship_build->{type} && $_->task eq 'Docked'} @all_ships;
+        my @ships  = @{$space_port->view_all_ships({type => [$ship_build->{type}]})};
+        my $ships_total     = scalar @ships;
+        my $ships_docked    = grep {$_->task eq 'Docked'} @ships;
+
         my $quota           = $ship_build->{quota} || $ship_build->{docked_quota};
         my $ships_needed    = $quota - ($ship_build->{quota} ? $ships_total : $ships_docked);
         $log->debug("ships total $ships_total, ships_docked $ships_docked, quota $quota, ships needed $ships_needed");

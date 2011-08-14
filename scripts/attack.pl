@@ -22,13 +22,23 @@ use WWW::LacunaExpanse::API::DateTime;
 # Load configurations
 
 MAIN: {
-    Log::Log4perl::init("$Bin/../attack.log4perl.conf");
+    my $log4perl_conf   = "$Bin/../attack.log4perl.conf";
+    my $account_yml     = "$Bin/../myaccount.yml";
+    my $config_yml      = "$Bin/../attack.yml";
+
+    my $result = GetOptions(
+        'log4perl=s'    => \$log4perl_conf,
+        'account=s'     => \$account_yml,
+        'config=s'      => \$config_yml,
+    );
+
+    Log::Log4perl::init($log4perl_conf);
 
     my $log = Log::Log4perl->get_logger('MAIN');
     $log->info('Program start');
 
-    my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
-    my $config    = YAML::Any::LoadFile("$Bin/../attack.yml");
+    my $my_account      = YAML::Any::LoadFile($account_yml);
+    my $config    = YAML::Any::LoadFile($config_yml);
 
     my $api = WWW::LacunaExpanse::API->new({
         uri         => $my_account->{uri},
