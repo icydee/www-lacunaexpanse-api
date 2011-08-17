@@ -412,8 +412,14 @@ sub _send_excavators {
 
     if ($colony_config->{dont_use_probes}) {
         $log->info("Sending excavators without using probes method");
-        my ($next_excavated_star)   = $schema->resultset('Config')->search({name => 'next_excavated_star'});
-        my ($next_excavated_orbit)  = $schema->resultset('Config')->search({name => 'next_excavated_orbit'});
+        my ($next_excavated_star)   = $schema->resultset('Config')->search({
+            name        => 'next_excavated_star',
+            empire_id   => $empire->id,
+        });
+        my ($next_excavated_orbit)  = $schema->resultset('Config')->search({
+            name        => 'next_excavated_orbit',
+            empire_id   => $empire->id,
+        });
 
         my $fail_count = 0;
         EXCAVATOR:
@@ -594,6 +600,7 @@ sub _arch_min_search {
             glyph_id    => $glyph->id
         });
         if ( ! $db_glyph) {
+            $log->debug("Adding glyph ".$glyph->id." to database");
             # We have not previously inserted it, so save it now
             $db_glyph = $schema->resultset('Glyph')->create({
                 server_id   => 1,

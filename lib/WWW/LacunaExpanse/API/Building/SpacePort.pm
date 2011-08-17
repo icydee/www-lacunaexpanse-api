@@ -249,12 +249,16 @@ sub get_available_ships_for {
 sub send_ship {
     my ($self, $ship_id, $args) = @_;
 
+    
+    my $log = Log::Log4perl->get_logger('WWW::LacunaExpanse::API::Connection');
+
     my $result;
     eval {
         $result = $self->connection->call($self->url, 'send_ship',[
             $self->connection->session_id, $ship_id, $args]);
     };
     if ($@) {
+        $log->error("Cannot send ship $@".Dumper($args));
         return;
     }
 

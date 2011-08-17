@@ -9,6 +9,7 @@ use Data::Dumper;
 use DateTime;
 use List::Util qw(min max);
 use YAML::Any;
+use Getopt::Long;
 
 use lib "$Bin/../lib";
 use WWW::LacunaExpanse::DB;
@@ -18,13 +19,25 @@ use WWW::LacunaExpanse::API::DateTime;
 # Load configurations
 
 MAIN: {
-    Log::Log4perl::init("$Bin/../create_halls.log4perl.conf");
+    my $log4perl_conf   = "$Bin/../create_halls.log4perl.conf";
+    my $account_yml     = "$Bin/../myaccount.yml";
+    my $config_yml      = "$Bin/../create_halls.yml";
+    my $mysql_yml       = "$Bin/../mysql.yml";
+
+    my $result = GetOptions(
+        'log4perl=s'    => \$log4perl_conf,
+        'account=s'     => \$account_yml,
+        'config=s'      => \$config_yml,
+        'mysql=s'       => \$mysql_yml,
+    );
+
+    Log::Log4perl::init($log4perl_conf);
 
     my $log = Log::Log4perl->get_logger('MAIN');
 
-    my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
-    my $config          = YAML::Any::LoadFile("$Bin/../create_halls.yml");
-    my $mysql_config    = YAML::Any::LoadFile("$Bin/../mysql.yml");
+    my $my_account      = YAML::Any::LoadFile($account_yml);
+    my $config          = YAML::Any::LoadFile($config_yml);
+    my $mysql_config    = YAML::Any::LoadFile($mysql_yml);
 
     my $api = WWW::LacunaExpanse::API->new({
         uri         => $my_account->{uri},
