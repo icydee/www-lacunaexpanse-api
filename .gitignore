@@ -11,4 +11,5 @@ myaccount.yml
 lacuna.db*
 log
 *.conf
+*.sh
 

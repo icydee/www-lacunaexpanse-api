@@ -1,4 +1,4 @@
-#!/home/icydee/localperl/bin/perl
+#!/usr/bin/perl
 
 # Carry out a survey of all colonies, get a report on the number of each type
 # of plan held there.

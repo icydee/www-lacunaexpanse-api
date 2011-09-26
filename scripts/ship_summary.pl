@@ -8,6 +8,7 @@ use Data::Dumper;
 use DateTime;
 use List::Util qw(min max);
 use YAML::Any;
+use Getopt::Long;
 
 use lib "$Bin/../lib";
 use WWW::LacunaExpanse::API;
@@ -16,8 +17,13 @@ use WWW::LacunaExpanse::API::DateTime;
 use WWW::LacunaExpanse::Agent::ShipBuilder;
 
 # Load configurations
+my $account_yml     = "$Bin/../configs/myaccount.yml";
 
-my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
+my $result = GetOptions(
+    'account=s'     => \$account_yml,
+);
+
+my $my_account      = YAML::Any::LoadFile($account_yml);
 
 my $api = WWW::LacunaExpanse::API->new({
     uri         => $my_account->{uri},

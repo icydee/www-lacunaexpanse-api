@@ -712,7 +712,10 @@ sub _trade_push {
     $log->info("Checking for docked trade push ships");
 
     my @all_ships = @{$space_port->view_all_ships({task => 'Docked', tag => ['Trade']})};
-    my (@trade_ships) = grep {$_->name eq $config->{empire}{trade_ship_name} } @all_ships;
+
+    # Sort, biggest ships first
+    my @trade_ships = sort {$b->hold_size <=> $a->hold_size} @all_ships;
+#    my (@trade_ships) = grep {$_->name eq $config->{empire}{trade_ship_name} } @all_ships;
 
 #    $log->error(Dumper(@all_ships));
 
@@ -858,9 +861,38 @@ sub _transport_plans {
                 # Find plans to send
                 my @plan_names = @{$plans_config->{$plan_colony_name}};
                 my @plans_to_send = ();
-                for my $plan_name (@plan_names) {
-                    $log->info("Searching for plan type $plan_name");
+                for my $plan_name_level (@plan_names) {
+                    my ($plan_name, $levels) = $plan_name_level =~ /(.*)\W*\+\W*(\d*)?/;
+                    $plan_name =~ s/^\W*(.*)\W*$/$1/;
+                    $log->info("Searching for plan [$plan_name] level [$levels]");
+                    # For each plan in the trade ministry
+                    for my $plan (@plans) {
+                        #$log->debug("Searching for plan name [".$plan->name."][$plan_name]");
+                        if ($plan->name eq $plan_name) {
+                            $log->debug("Found plan name [$plan_name] id [".$plan->id."]");
+                            if (defined $levels) {
+                                $log->debug("Levels [$levels]");
+                                my @levels = split(//,$levels);
+                                PLAN_LEVEL:
+                                for my $level (@levels) {
+                                    $log->debug("Checking level [$level]");
+                                    if ($plan->level == $level + 1) {
+                                        $log->debug("Sending plan [".$plan->id."]");
+                                        push @plans_to_send, $plan;
+                                        last PLAN_LEVEL;
+                                    }
+                                }
+                            }
+                            else {
+                                $log->debug("Sending plan [".$plan->id."]");
+                                push @plans_to_send, $plan;
+                            }
+                        }
+                    }
+
                     push @plans_to_send, grep {$_->name eq $plan_name} @plans;
+
+
                 }
                 if (@plans_to_send) {
                     $log->info("Sending ".scalar(@plans_to_send)." plans to $plan_colony_name");
@@ -871,8 +903,14 @@ sub _transport_plans {
                         # Max plans we can put on this ship
                         my $max_plans = int($plan_ship->hold_size / 10000);
                         my @plans_to_transport = splice @plans_to_send, 0, $max_plans;
+                        $log->debug("ship size ".$plan_ship->hold_size." max_plans=$max_plans");
                         my @items = map { {type => 'plan', plan_id => $_->id} } @plans_to_transport;
+                        $log->debug("number of items ".scalar(@items));
+                        $log->debug("shipping ".scalar(@items)." plans on ship ".$plan_ship->id." which is ".$plan_ship->name." and is ".$plan_ship->task);
+
+
                         $log->debug("items ".join('-',@items));
+
                         $trade_ministry->push_items($plan_colony, \@items, {ship_id => $plan_ship->id});
                     }
                 }
@@ -930,7 +968,8 @@ sub _transport_glyphs {
 
     if ($glyph_colony && $glyph_colony->name ne $colony->name) {
         $log->debug("Checking for docked glyph ships");
-        (@glyph_ships) = grep {$_->name eq $config->{empire}{glyph_ship_name}} @all_ships;
+        @glyph_ships = @all_ships;
+#        (@glyph_ships) = grep {$_->name eq $config->{empire}{glyph_ship_name}} @all_ships;
     }
 
     if (! @glyph_ships && $glyph_colony) {

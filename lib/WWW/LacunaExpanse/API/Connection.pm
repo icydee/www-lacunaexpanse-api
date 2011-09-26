@@ -70,6 +70,7 @@ sub call {
         $ps = join('|', map {defined $_ ? $_ : ''} @$params);
     }
     $self->log->debug("API-CALL: PATH $path : METHOD $method [$ps]");
+#    print Dumper($params);
 
     my $max_tries = 5;
 
