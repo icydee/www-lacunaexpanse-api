@@ -5,38 +5,7 @@ use Data::Dumper;
 use Carp;
 use Contextual::Return;
 
-use WWW::LacunaExpanse::API::MyEmpire;
-use WWW::LacunaExpanse::API::Cost;
-use WWW::LacunaExpanse::API::VirtualShip;
-use WWW::LacunaExpanse::API::Ship;
 use WWW::LacunaExpanse::API::Empire;
-use WWW::LacunaExpanse::API::EmpireRank;
-use WWW::LacunaExpanse::API::Connection;
-use WWW::LacunaExpanse::API::Body;
-use WWW::LacunaExpanse::API::Colony;
-use WWW::LacunaExpanse::API::MyColony;
-use WWW::LacunaExpanse::API::Graft;
-use WWW::LacunaExpanse::API::Inbox;
-use WWW::LacunaExpanse::API::Spy;
-use WWW::LacunaExpanse::API::Species;
-use WWW::LacunaExpanse::API::Star;
-use WWW::LacunaExpanse::API::Stats;
-use WWW::LacunaExpanse::API::AllianceStat;
-use WWW::LacunaExpanse::API::Ore;
-use WWW::LacunaExpanse::API::Ores;
-use WWW::LacunaExpanse::API::DateTime;
-use WWW::LacunaExpanse::API::Alliance;
-use WWW::LacunaExpanse::API::EmpireStats;
-use WWW::LacunaExpanse::API::BuildingFactory;
-use WWW::LacunaExpanse::API::Building::Timer;
-use WWW::LacunaExpanse::API::Building::Generic;
-use WWW::LacunaExpanse::API::Building::SpacePort;
-use WWW::LacunaExpanse::API::Building::GeneticsLab;
-use WWW::LacunaExpanse::API::Building::TradeMinistry;
-use WWW::LacunaExpanse::API::Building::ArchaeologyMinistry;
-use WWW::LacunaExpanse::API::Building::PlanetaryCommandCenter;
-use WWW::LacunaExpanse::API::Building::MercenariesGuild;
-use WWW::LacunaExpanse::API::Building::IntelligenceMinistry;
 
 # This is the base class for the API
 
@@ -45,7 +14,7 @@ has 'uri'           => (is => 'ro', required => 1);
 has 'username'      => (is => 'rw', required => 0);
 has 'password'      => (is => 'rw', required => 0);
 has 'debug_hits'    => (is => 'rw', default => 0);
-has 'my_empire'     => (is => 'ro', lazy_build => 1);
+has 'empire'        => (is => 'ro', lazy_build => 1);
 has 'inbox'         => (is => 'ro', lazy_build => 1);
 has 'connection'    => (is => 'ro', lazy_build => 1);
 
@@ -56,11 +25,11 @@ sub BUILD {
     my ($self) = @_;
 
     WWW::LacunaExpanse::API::Connection->initialize({
-        uri         => $self->uri,
-        username    => $self->username,
-        password    => $self->password,
-        debug_hits  => $self->debug_hits,
-    });
+            uri         => $self->uri,
+            username    => $self->username,
+            password    => $self->password,
+            debug_hits  => $self->debug_hits,
+            });
 }
 
 # Lazy build of connection
@@ -77,32 +46,32 @@ sub _build_inbox {
     my ($self) = @_;
 
     my $inbox = WWW::LacunaExpanse::API::Inbox->new({
-    });
+            });
 
     return $inbox;
 }
 
 # Lazy build of My Empire
 #
-sub _build_my_empire {
+sub _build_empire {
     my ($self) = @_;
 
-    my $my_empire = {};
+    my $empire = {};
 
     if ($self->connection->session_id) {
         $self->connection->debug(0);
-        my $result = $self->connection->call('/empire', 'get_status',[$self->connection->session_id]);
+        my $result = $self->connection->call('/empire', 'get_status',[{ session_id => $self->connection->session_id}]);
         $self->connection->debug(0);
 
         my $data = $result->{result}{empire};
 
-        $my_empire = WWW::LacunaExpanse::API::MyEmpire->new({
+        $empire = WWW::LacunaExpanse::API::Empire->new({
             id      => $data->{id},
             name    => $data->{name},
         });
     }
 
-    return $my_empire;
+    return $empire;
 }
 
 # Generic Find method
@@ -123,7 +92,7 @@ sub find {
 
     if ($args->{my_colony}) {
 #        print "search for my colony [".$args->{my_colony}."]\n";
-        $things = $self->my_empire->find_colony($args->{my_colony});
+        $things = $self->empire->find_colony($args->{my_colony});
     }
 
     return (

@@ -35,7 +35,7 @@ sub BUILD {
     my ($self) = @_;
 
     if (defined($self->{username}) and defined($self->{password})) {
-	$self->call('/empire', 'login', [$self->username, $self->password, $public_key]);
+    $self->call('/empire', 'login', [$self->username, $self->password, $public_key]);
     }
 }
 
@@ -141,12 +141,12 @@ sub call {
         print "\n############ response ###############\n";
         print "response = [".dump(\$deflated)."]\n";
         print "#######################################\n\n";
-    }
+}
 
     if (!$self->session_id                                          # Skip if we've already got it
-	    and exists $deflated->{result}
-	    and ref($deflated->{result}) eq 'HASH'                      # unauthenticated calls don't return a HASH ref
-	    and exists $deflated->{result}{session_id}) {
+        and exists $deflated->{result}
+        and ref($deflated->{result}) eq 'HASH'                      # unauthenticated calls don't return a HASH ref
+        and exists $deflated->{result}{session_id}) {
 
         $self->session_id($deflated->{result}{session_id});
     }

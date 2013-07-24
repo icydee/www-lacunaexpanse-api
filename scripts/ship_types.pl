@@ -3,43 +3,33 @@
 # Get all ship types buildable
 
 use Modern::Perl;
-use FindBin qw($Bin);
+use FindBin::libs;
 use Data::Dumper;
-use DateTime;
-use List::Util qw(min max);
-use YAML::Any;
 
-use lib "$Bin/../lib";
 use WWW::LacunaExpanse::API;
-use WWW::LacunaExpanse::Schema;
-use WWW::LacunaExpanse::API::DateTime;
-use WWW::LacunaExpanse::Agent::ShipBuilder;
-
-# Load configurations
-
-my $my_account      = YAML::Any::LoadFile("$Bin/../myaccount.yml");
 
 my $api = WWW::LacunaExpanse::API->new({
-    uri         => $my_account->{uri},
-    username    => $my_account->{username},
-    password    => $my_account->{password},
-    debug_hits  => $my_account->{debug_hits},
+    uri         => "http://le.icydee.com:8080",
+    username    => "Lacuna Expanse Corp",
+    password    => "secret56",
 });
 
-my $colonies = $api->my_empire->colonies;
+my $empire = $api->empire;
 
-COLONY:
-for my $colony (sort {$a->name cmp $b->name} @$colonies) {
-    next COLONY unless $colony->name eq 'hw3';
 
-    my $shipyard = $colony->shipyard;
-    next COLONY if ! $shipyard;
+my @colonies = @{$empire->status->planets};
 
-    my $buildable = $shipyard->buildable;
-    my @buildables = sort {$a->type cmp $b->type} @$buildable;
-    for my $ship (@buildables) {
-        print "Buildable: ".$ship->type."\n";
-    }
+for my $colony (@colonies) {
+    my $type = $colony->type;
+    print STDERR "EMPIRE = [".$colony->empire."]\n";
+
+    print STDERR Dumper($colony->empire);
+    print STDERR "PLANETS = [".$colony->empire->planets."]\n";
+    print STDERR "PLANET[0] = [".$colony->empire->planets->[0]."]\n";
+    
+    print STDERR $colony->empire->planets->[0]->water_stored."\n";
 }
+
+
 
 1;
