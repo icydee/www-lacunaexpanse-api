@@ -1,0 +1,15 @@
+# config-file-type: JSON 1
+
+{
+   "one" : "1",
+   "pass" : "secret",
+   "stats" : {
+      "health" : "fine",
+      "vitality" : "sick"
+   },
+   "three" : {
+      "quarters" : "3.75"
+   },
+   "two" : "2",
+   "user" : "iain"
+}
