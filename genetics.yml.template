@@ -1,9 +1,0 @@
-# The name of the colony on which the genetics lab is placed.
-colony:     'colony 1'
-
-# The name of the spy to experiment on
-spy_name:   'Bait 1'
-
-# The affinity to try and graft
-affinity:   'management_affinity'
-
