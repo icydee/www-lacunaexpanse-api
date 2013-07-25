@@ -19,6 +19,12 @@ my $empire = $api->empire;
 
 my @colonies = @{$empire->status->planets};
 
+my $profile = $empire->view_public_profile;
+
+print STDERR Dumper($profile);
+exit;
+
+
 for my $colony (@colonies) {
     my $type = $colony->type;
     print STDERR "EMPIRE = [".$colony->empire."]\n";
