@@ -1,0 +1,11 @@
+# default json config file
+# copy this to file default.json and change
+# the credentials
+{
+    "connect"   : {
+        "uri"       : "http://us1.lacunaexpanse.com",
+        "username"  : "my empire name",
+        "password"  : "it's secret"
+    }
+}
+
