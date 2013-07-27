@@ -35,7 +35,11 @@ sub BUILD {
     my ($self) = @_;
 
     if (defined($self->{username}) and defined($self->{password})) {
-    $self->call('/empire', 'login', [$self->username, $self->password, $public_key]);
+        $self->call('/empire', 'login', [{
+            name        => $self->username, 
+            password    => $self->password, 
+            api_key     => $public_key,
+        }]);
     }
 }
 

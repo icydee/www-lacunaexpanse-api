@@ -9,6 +9,7 @@ use WWW::LacunaExpanse::API::Body::Status;
 # mostly, this is obtained by a call to /empire get_status
 
 with 'WWW::LacunaExpanse::API::Role::Connection';
+with 'WWW::LacunaExpanse::API::Role::Attributes';
 
 # Attributes based on the hash returned by the call
 my $attributes = {

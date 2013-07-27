@@ -4,6 +4,7 @@ use Moose;
 use Carp;
 use WWW::LacunaExpanse::API::Empire::Status;
 use WWW::LacunaExpanse::API::Empire::PublicProfile;
+use WWW::LacunaExpanse::API::Empire::OwnProfile;
 
 # This defines your own Empire and all the attributes and methods that go with it
 # mostly, this is obtained by a call to /empire get_status
@@ -29,6 +30,12 @@ has 'status'    => (
     lazy        => 1,
     builder     => '_build_status',
 );
+has 'own_profile' => (
+    is          => 'rw',
+    isa         => 'WWW::LacunaExpanse::API::Empire::OwnProfile',
+    lazy        => 1,
+    builder     => '_build_own_profile',
+);
 
 sub _build_status {
     my ($self) = @_;
@@ -40,17 +47,22 @@ sub _build_status {
     
 }
 
-sub view_public_profile {
+sub _build_own_profile {
+    my ($self) = @_;
+    my $result = $self->connection->call($self->_path, 'get_own_profile',[{
+        session_id  => $self->connection->session_id,
+    }]);
+    my $body = $result->{result}{own_profile};
+    return WWW::LacunaExpanse::API::Empire::OwnProfile->new_from_raw($body);
+
+}
+
+sub get_public_profile {
     my ($self, $empire_id) = @_;
 
-    $empire_id = $empire_id || $self->id;
-
-    my $result = $self->connection->call($self->_path, 'view_public_profile',[{
-        session_id  => $self->connection->session_id,
-        empire_id   => $empire_id,
-    }]);
-    my $profile = $result->{result}{profile};
-    return WWW::LacunaExpanse::API::Empire::PublicProfile->new_from_raw($profile);
+    return WWW::LacunaExpanse::API::Empire::PublicProfile->new({
+        id   => $empire_id,
+    });
 }
 
 no Moose;

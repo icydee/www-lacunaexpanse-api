@@ -1,4 +1,4 @@
-package WWW::LacunaExpanse::API::Empire::PublicProfile;
+package WWW::LacunaExpanse::API::Empire::OwnProfile;
 
 use Moose;
 use Carp;
@@ -11,20 +11,17 @@ with 'WWW::LacunaExpanse::API::Role::Attributes';
 # Attributes based on the hash returned by the call
 my $attributes = {
     id                      => 'Int',
-    name                    => 'Str',
-    colony_count            => 'Int',
-    status_message          => 'Str',
-    description             => 'Str',
-    city                    => 'Str',
-    country                 => 'Str',
-    skype                   => 'Str',
-    player_name             => 'Str',
-    last_login              => \'WWW::LacunaExpanse::API::Bits::DateTime',
-    date_founded            => \'WWW::LacunaExpanse::API::Bits::DateTime',
-    species                 => 'Str',
-    known_colonies          => \'ArrayRef[WWW::LacunaExpanse::API::Body::Status]',
+    player_name             => 'Maybe[Str]',
+    description             => 'Maybe[Str]',
+    status_message          => 'Maybe[Str]',
+    city                    => 'Maybe[Str]',
+    country                 => 'Maybe[Str]',
+    notes                   => 'Maybe[Str]',
+    skype                   => 'Maybe[Str]',
+    player_name             => 'Maybe[Str]',
+    email                   => 'Maybe[Str]',
+    sitter_password         => 'Str',
     medals                  => \'ArrayRef[WWW::LacunaExpanse::API::Bits::Medal]',
-    #alliance
 };
 
 # private: path to the URL to call
@@ -44,11 +41,10 @@ create_attributes(__PACKAGE__, $attributes);
 
 sub update {
     my ($self) = @_;
-    my $result = $self->connection->call($self->_path, 'get_public_profile',[{
+    my $result = $self->connection->call($self->_path, 'get_own_profile',[{
         session_id  => $self->connection->session_id,
-        empire_id   => $self->id,
     }]);
-    $self->update_from_raw($result->{result}{public_profile});
+    $self->update_from_raw($result->{result}{own_profile});
 }
 
 

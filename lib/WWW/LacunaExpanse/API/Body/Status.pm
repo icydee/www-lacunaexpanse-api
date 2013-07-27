@@ -7,6 +7,7 @@ use Carp;
 # by the call to /body get_status
 
 with 'WWW::LacunaExpanse::API::Role::Connection';
+with 'WWW::LacunaExpanse::API::Role::Attributes';
 
 # Attributes based on the hash returned by the call
 my $attributes = {
