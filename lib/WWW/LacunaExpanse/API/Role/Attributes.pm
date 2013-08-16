@@ -113,4 +113,5 @@ sub update_from_raw {
     }
 }
 
-1
+1;
+

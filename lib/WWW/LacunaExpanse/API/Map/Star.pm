@@ -16,6 +16,7 @@ my $attributes = {
     color                   => 'Str',
     x                       => 'Int',
     y                       => 'Int',
+    zone                    => 'Str',
     bodies                  => \'ArrayRef[WWW::LacunaExpanse::API::Body::Status]',
     station                 => \'WWW::LacunaExpanse::API::Body::Status',
 };

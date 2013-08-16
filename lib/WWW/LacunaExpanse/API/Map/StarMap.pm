@@ -8,14 +8,14 @@ use WWW::LacunaExpanse::API::Body::Status;
 with 'WWW::LacunaExpanse::API::Role::Connection';
 with 'WWW::LacunaExpanse::API::Role::Attributes';
 
+has 'left'      => (is => 'rw');
+has 'top'       => (is => 'rw');
+has 'bottom'    => (is => 'rw');
+has 'right'     => (is => 'rw');
+
 # Attributes based on the hash returned by the call
 my $attributes = {
-    id                      => 'Int',
-    name                    => 'Str',
-    x                       => 'Int',
-    y                       => 'Int',
-    station                 => \'WWW::LacunaExpanse::API::Bits::Station',
-    bodies                  => \'ArrayRef[WWW::LacunaExpanse::API::Body::Status]',
+    stars       => \'ArrayRef[WWW::LacunaExpanse::API::Map::Star]',
 };
 
 # private: path to the URL to call
@@ -32,6 +32,18 @@ has '_attributes' => (
 );
 
 create_attributes(__PACKAGE__, $attributes);
+
+sub update {
+    my ($self) = @_;
+    my $result = $self->connection->call($self->_path, 'get_star_map',[{
+        session_id  => $self->connection->session_id,
+        left        => $self->left,
+        right       => $self->right,
+        top         => $self->top,
+        bottom      => $self->bottom,
+    }]);
+    $self->update_from_raw($result->{result});
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

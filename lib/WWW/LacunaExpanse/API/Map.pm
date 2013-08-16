@@ -3,6 +3,8 @@ package WWW::LacunaExpanse::API::Map;
 use Moose;
 use Carp;
 
+use WWW::LacunaExpanse::API::Map::StarMap;
+
 # This defines the calls to the '/map' API
 
 with 'WWW::LacunaExpanse::API::Role::Connection';
