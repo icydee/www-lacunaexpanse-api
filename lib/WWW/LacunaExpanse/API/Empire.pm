@@ -9,7 +9,6 @@ use WWW::LacunaExpanse::API::Empire::OwnProfile;
 # This defines your own Empire and all the attributes and methods that go with it
 # mostly, this is obtained by a call to /empire get_status
 
-extends 'WWW::LacunaExpanse::API';
 
 with 'WWW::LacunaExpanse::API::Role::Connection';
 

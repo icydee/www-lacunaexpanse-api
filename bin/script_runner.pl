@@ -32,8 +32,9 @@ pod2usage(1) if $help and not $script_name;
 
 # Attempt to load the class and create an instance
 my $class = "WWW::LacunaExpanse::Script::$script_name";
-if (not try_load_class($class)){
-    croak "Cannot load class $class";
+my ($loaded, $error) = try_load_class($class);
+if (not $loaded) {
+    croak "Cannot load class $class - $error";
 }
 
 my $script = $class->new;
@@ -52,7 +53,12 @@ GetOptions (
     "config=s@" => \@config_names,
 );
 
-unshift @configs, @config_names,$script->default_config;
+if ($script->has_default_config) {
+    unshift @configs, @config_names,$script->default_config;
+}
+else {
+    unshift @configs, @config_names;
+}
 
 # add the base path to the etc directory.
 

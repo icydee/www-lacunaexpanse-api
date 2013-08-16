@@ -15,10 +15,16 @@ has api => (
     isa     => 'WWW::LacunaExpanse::API',
 );
 
+has has_default_config => (
+    is      => 'rw',
+    isa     => 'Int',
+    default => 0,
+);
+
 # This is the name of the config file that this script uses
 has default_config => (
     is      => 'ro',
-    isa     => 'Str',
+    isa     => 'Maybe[Str]',
     builder => '_build_default_config',
 );
 

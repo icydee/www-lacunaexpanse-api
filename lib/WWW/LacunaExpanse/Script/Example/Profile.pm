@@ -20,7 +20,6 @@ sub execute {
     foreach my $medal (@{$public_profile->medals}) {
         print "    name         ".$medal->name."\n";
         print "      times      ".$medal->times_earned."\n";
-        print "      public     : ".$medal->public."\n";
     }
 
     my $own_profile = $empire->own_profile;

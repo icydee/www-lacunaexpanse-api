@@ -5,6 +5,12 @@ use Moose;
 
 extends 'WWW::LacunaExpanse::Script';
 
+has has_default_config => (
+    is          => 'ro',
+    isa         => 'Int',
+    default     => 1,
+);
+
 # This is where the script does it's stuff
 sub execute {
     my ($self) = @_;

@@ -15,6 +15,7 @@ has 'username'      => (is => 'rw', required => 0);
 has 'password'      => (is => 'rw', required => 0);
 has 'debug_hits'    => (is => 'rw', default => 0);
 has 'empire'        => (is => 'ro', lazy_build => 1);
+has 'map'           => (is => 'ro', lazy_build => 1);
 has 'inbox'         => (is => 'ro', lazy_build => 1);
 has 'connection'    => (is => 'ro', lazy_build => 1);
 
@@ -56,22 +57,32 @@ sub _build_inbox {
 sub _build_empire {
     my ($self) = @_;
 
-    my $empire = {};
+    my $empire;
 
     if ($self->connection->session_id) {
-        $self->connection->debug(0);
         my $result = $self->connection->call('/empire', 'get_status',[{ session_id => $self->connection->session_id}]);
-        $self->connection->debug(0);
 
         my $data = $result->{result}{empire};
 
         $empire = WWW::LacunaExpanse::API::Empire->new({
             id      => $data->{id},
             name    => $data->{name},
+            connection  => $self->connection,
         });
     }
 
     return $empire;
+}
+
+# Lazy build of Map
+#
+sub _build_map {
+    my ($self) = @_;
+
+    my $map = WWW::LacunaExpanse::API::Map->new({
+        connectio => $self->connection,
+    });
+    return $map;
 }
 
 # Generic Find method

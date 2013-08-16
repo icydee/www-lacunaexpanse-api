@@ -25,7 +25,7 @@ use overload '""' => sub {
     my $minute  = $date->minutes;
     my $second  = $date->seconds;
 
-    my $str = "$year/$month/$day $hour:$minute:$second";
+    my $str = "$year $month $day $hour:$minute:$second";
 
     return $str;
 };
