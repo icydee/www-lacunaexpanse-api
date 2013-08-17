@@ -1,4 +1,4 @@
-package WWW::LacunaExpanse::Script::Example::Profile;
+package WWW::LacunaExpanse::Script::Example::Empire;
 
 use Pod::Usage;
 use Moose;
@@ -48,7 +48,7 @@ sub usage {
 
 =head1 NAME
 
-WWW::LacunaExpanse::Script::Example::Species;
+WWW::LacunaExpanse::Script::Example::Empire;
 
 =head1 SYNOPSIS
 
@@ -57,7 +57,7 @@ WWW::LacunaExpanse::Script::Example::Species;
 
   Use with script_runner.pl as follows.
 
-  ./script_runner.pl -script Example::Species
+  ./script_runner.pl -script Example::Empire
 
 =head1 OPTIONS
 
@@ -66,6 +66,6 @@ WWW::LacunaExpanse::Script::Example::Species;
 This is an example script for use with the WWW::LacunaExpanse::Script script_runner.pl
 module.
 
-It shows how you can do something simple (in this case just print your Species information.)
+It shows how you can do something simple (in this case interact with the /empire API.)
 
 =cut

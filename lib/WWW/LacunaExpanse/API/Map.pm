@@ -7,12 +7,12 @@ use WWW::LacunaExpanse::API::Map::StarMap;
 
 # This defines the calls to the '/map' API
 
-with 'WWW::LacunaExpanse::API::Role::Connection';
+with 'WWW::LacunaExpanse::API::Role::Call';
 
 has '_path'      => (
-    is          => 'ro',
-    default     => '/map',
-);
+        is          => 'ro',
+        default     => '/map',
+        );
 
 sub get_star_map {
     my ($self, $args) = @_;
@@ -23,10 +23,9 @@ sub get_star_map {
 sub check_star_for_incoming_probe {
     my ($self, $star_id) = @_;
 
-    my $result = $self->connection->call($self->_path, 'check_star_for_incoming_probe',[{
-        session_id  => $self->connection->session_id,
+    my $result = $self->call('check_star_for_incoming_probe', {
         star_id     => $star_id,
-    }]);
+    });
 
     if ($result->{result}{incoming_probe}) {
         return WWW::LacunaExpanse::API::Bits::DateTime->new_from_raw($result->{result}{incoming_probe});
@@ -47,10 +46,9 @@ sub get_star {
 sub find_star {
     my ($self, $star_name) = @_;
 
-    my $result = $self->connection->call($self->_path, 'find_star',[{
-        session_id  => $self->connection->session_id,
+    my $result = $self->call('find_star', {
         name        => $star_name,
-    }]);
+    });
     
     my @stars;
     foreach my $raw (@{$result->{result}{stars}}) {
