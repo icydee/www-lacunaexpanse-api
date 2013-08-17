@@ -10,7 +10,7 @@ use WWW::LacunaExpanse::API::Empire::OwnProfile;
 # mostly, this is obtained by a call to /empire get_status
 
 
-with 'WWW::LacunaExpanse::API::Role::Connection';
+with 'WWW::LacunaExpanse::API::Role::Call';
 
 has 'id'        => (
     is          => 'ro',
@@ -36,11 +36,11 @@ has 'own_profile' => (
     builder     => '_build_own_profile',
 );
 
+
 sub _build_status {
     my ($self) = @_;
-    my $result = $self->connection->call($self->_path, 'get_status',[{
-        session_id  => $self->connection->session_id, 
-    }]);
+
+    my $result = $self->call('get_status');
     my $body = $result->{result}{empire};
     return WWW::LacunaExpanse::API::Empire::Status->new_from_raw($body);
     
@@ -48,9 +48,7 @@ sub _build_status {
 
 sub _build_own_profile {
     my ($self) = @_;
-    my $result = $self->connection->call($self->_path, 'get_own_profile',[{
-        session_id  => $self->connection->session_id,
-    }]);
+    my $result = $self->call('get_own_profile');
     my $body = $result->{result}{own_profile};
     return WWW::LacunaExpanse::API::Empire::OwnProfile->new_from_raw($body);
 

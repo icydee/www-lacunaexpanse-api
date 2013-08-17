@@ -6,7 +6,7 @@ use WWW::LacunaExpanse::API::Bits::DateTime;
 
 # This defines a single star
 
-with 'WWW::LacunaExpanse::API::Role::Connection';
+with 'WWW::LacunaExpanse::API::Role::Call';
 with 'WWW::LacunaExpanse::API::Role::Attributes';
 
 # Attributes based on the hash returned by the call
@@ -40,10 +40,10 @@ create_attributes(__PACKAGE__, $attributes);
 #
 sub update {
     my ($self) = @_;
-    my $result = $self->connection->call($self->_path, 'get_star',[{
-        session_id  => $self->connection->session_id,
+
+    my $result = $self->call('get_star', {
         star_id     => $self->id,
-    }]);
+    });
     $self->update_from_raw($result->{result}{star});
 }
 

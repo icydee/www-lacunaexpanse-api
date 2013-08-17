@@ -8,8 +8,8 @@ use WWW::LacunaExpanse::API::Body::Status;
 # This defines your own Empire and all the attributes and methods that go with it
 # mostly, this is obtained by a call to /empire get_status
 
-with 'WWW::LacunaExpanse::API::Role::Connection';
 with 'WWW::LacunaExpanse::API::Role::Attributes';
+with 'WWW::LacunaExpanse::API::Role::Call';
 
 # Attributes based on the hash returned by the call
 my $attributes = {
@@ -48,10 +48,9 @@ create_attributes(__PACKAGE__, $attributes);
 #
 sub update {
     my ($self) = @_;
-    my $result = $self->connection->call($self->_path, 'get_status',[{
-        session_id  => $self->connection->session_id,
+    my $result = $self->call('get_status',{
         body_id     => $self->id,
-    }]);
+    });
     $self->update_from_raw($result->{result}{empire});
 }
 

@@ -7,6 +7,8 @@ use Contextual::Return;
 
 use WWW::LacunaExpanse::API::Empire;
 
+with 'WWW::LacunaExpanse::API::Role::Call';
+
 # This is the base class for the API
 
 # Attributes
@@ -17,7 +19,6 @@ has 'debug_hits'    => (is => 'rw', default => 0);
 has 'empire'        => (is => 'ro', lazy_build => 1);
 has 'map'           => (is => 'ro', lazy_build => 1);
 has 'inbox'         => (is => 'ro', lazy_build => 1);
-has 'connection'    => (is => 'ro', lazy_build => 1);
 
 my $status;
 
@@ -31,14 +32,6 @@ sub BUILD {
             password    => $self->password,
             debug_hits  => $self->debug_hits,
             });
-}
-
-# Lazy build of connection
-#
-sub _build_connection {
-    my ($self) = @_;
-
-    return WWW::LacunaExpanse::API::Connection->instance;
 }
 
 # Lazy build of Inbox

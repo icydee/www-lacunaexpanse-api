@@ -6,7 +6,7 @@ use Carp;
 # This defines data about a body (including your own colonies) as obtained
 # by the call to /body get_status
 
-with 'WWW::LacunaExpanse::API::Role::Connection';
+with 'WWW::LacunaExpanse::API::Role::Call';
 with 'WWW::LacunaExpanse::API::Role::Attributes';
 
 # Attributes based on the hash returned by the call
@@ -48,9 +48,8 @@ my $attributes = {
     plots_available         => 'Int',
     water                   => 'Int',
     image                   => 'Str',
-    #ore
-    #star_id
-    #star_name
+    ore                     => \'WWW::LacunaExpanse::API::Bits::Ores',
+    star                    => \'WWW::LacunaExpanse::API::Map::Star',
 };
 
 # private: path to the URL to call
@@ -72,10 +71,10 @@ create_attributes(__PACKAGE__, $attributes);
 #
 sub update {
     my ($self) = @_;
-    my $result = $self->connection->call($self->_path, 'get_status',[{
-        session_id  => $self->connection->session_id,
+
+    my $result = $self->call('get_status',{
         body_id     => $self->id,
-    }]);
+    });
     $self->update_from_raw($result->{result}{body});
 }
 
