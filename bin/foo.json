@@ -1,7 +1,0 @@
-# config-file-type: JSON 1
-
-{
-   "baz" : 1,
-   "foo" : "bar",
-   "test" : "fred"
-}
