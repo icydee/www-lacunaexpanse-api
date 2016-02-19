@@ -117,7 +117,7 @@ sub is_name_available {
     my ($self, $name) = @_;
     local $@;
 
-    my $result = eval { $self->connection->call('/empire', 'is_name_available', [$name]) };
+    my $result = eval { return $self->connection->call('/empire', 'is_name_available', [$name]) };
 
     return $@ ? 0 : $result->{result};
 }

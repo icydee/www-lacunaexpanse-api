@@ -156,7 +156,7 @@ sub call {
     }
     # throttle back a script so that it is less than 75 per minutes
     # sleep 1 will reduce it to less than 60 per minute
-    sleep 2;
+    sleep 1;
     return $deflated;
 
 

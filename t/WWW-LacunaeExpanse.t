@@ -14,14 +14,12 @@ my $client = eval { WWW::LacunaExpanse::API->new(uri => 'http://spacebotwar.com:
 isa_ok($client, 'WWW::LacunaExpanse::API');
 
 my $is_available_false = $client->is_name_available( { name => 'icydee' } );
-diag Dumper($is_available_false);
 
 ok($is_available_false == 0, 'is_name_available false');
 
 my $is_available_true = $client->is_name_available( { name => 'Z1y3W5x7D6c4B2a' } );
-diag Dumper($is_available_true);
 
-ok($is_available_true == 1, 'is_name_available true');
+ok($is_available_true->{available} == 1, 'is_name_available true');
 
 1;
 __END__
