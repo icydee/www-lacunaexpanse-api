@@ -12,4 +12,4 @@ lacuna.db*
 log
 *.conf
 *.sh
-
+etc/default.json
